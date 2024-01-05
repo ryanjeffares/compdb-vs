@@ -27,7 +27,7 @@ static constexpr std::size_t operator""_uz (unsigned long long int value)
     return static_cast<std::size_t>(value);
 }
 
-struct CompileCommand
+struct [[nodiscard]] CompileCommand
 {
     std::string directory;
     std::string command;
@@ -47,9 +47,14 @@ public:
 
         }
 
+        BadResultAccess(const BadResultAccess&) = default;
+        BadResultAccess(BadResultAccess&&) noexcept = default;
+        BadResultAccess& operator=(const BadResultAccess&) = default;
+        BadResultAccess& operator=(BadResultAccess&&) noexcept = default;
+
         ~BadResultAccess() override = default;
 
-        const char* what() const override
+        [[nodiscard]] const char* what() const override
         {
             return m_message.c_str();
         }
@@ -70,8 +75,8 @@ public:
 
     Result(const Result&) = default;
     Result(Result&&) noexcept = default;
-    [[nodiscard]] Result& operator=(const Result&) = default;
-    [[nodiscard]] Result& operator=(Result&&) noexcept = default;
+    Result& operator=(const Result&) = default;
+    Result& operator=(Result&&) noexcept = default;
     ~Result() = default;
 
     [[nodiscard]] auto isOk() const noexcept -> bool
@@ -164,7 +169,7 @@ namespace fs = std::filesystem;
 static bool s_verbose = false;
 
 template<typename... Ts>
-static void log(fmt::format_string<Ts...> message, Ts&&... formatArgs)
+static auto log(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
 {
     if (s_verbose) {
         fmt::print(message, std::forward<Ts>(formatArgs)...);
@@ -172,12 +177,12 @@ static void log(fmt::format_string<Ts...> message, Ts&&... formatArgs)
 }
 
 template<typename... Ts>
-static void logError(fmt::format_string<Ts...> message, Ts&&... formatArgs)
+static auto logError(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
 {
     fmt::print(stderr, message, std::forward<Ts>(formatArgs)...);
 }
 
-static void help()
+static auto help() -> void
 {
     fmt::print("compdb-vs {}:{}:{}\n\n", COMPDB_VS_MAJOR_VERSION, COMPDB_VS_MINOR_VERSION, COMPDB_VS_PATCH_NUMBER);
 
@@ -191,7 +196,7 @@ static void help()
     fmt::print("    --verbose/-v                Enable verbose mode\n");
 }
 
-int main(int argc, const char* argv[])
+auto main(int argc, const char* argv[]) -> int
 {
     std::string config = "Debug";
     std::string buildDir = "build";
@@ -279,7 +284,7 @@ static auto findTlogFiles(
     std::vector<fs::path> tlogFiles;
 
     if (!fs::is_directory(buildDir)) {
-        return std::runtime_error(fmt::format("Couldn't open build directory {}", buildDir.string()));
+        return std::runtime_error{fmt::format("Couldn't open build directory {}", buildDir.string())};
     }
 
     try {
@@ -307,7 +312,7 @@ static auto findTlogFiles(
             }
         }
     } catch (const fs::filesystem_error& e) {
-        return std::runtime_error(fmt::format("Failed to iterator through directory {}: {}", buildDir.string(), e.what()));
+        return std::runtime_error{fmt::format("Failed to iterator through directory {}: {}", buildDir.string(), e.what())};
     }
 
     return tlogFiles;
@@ -343,47 +348,29 @@ static auto createCompileCommands(
         const auto contents = stream.str();
 
         auto getLines = [] (std::string_view string) {
-            std::string_view delimiter = "\r\n";
-            auto posStart = 0_uz;
-            auto posEnd = 0_uz;
-            auto delimLen = delimiter.size();
+            std::vector<std::string> lines;
 
-            std::string token;
-            std::vector<std::string> res;
+            using namespace std::literals;
 
-            while ((posEnd = string.find(delimiter, posStart)) != std::string::npos) {
-                token = string.substr(posStart, posEnd - posStart);
-                posStart = posEnd + delimLen;
-                res.push_back(token);
+            for (const auto split : std::views::split(string, "\r\n"sv) | std::views::transform([] (const auto split) {
+                return std::string_view{split.data(), split.size()};
+            })) {
+                lines.emplace_back(split);
             }
 
-            res.emplace_back(string.substr(posStart));
-
-            return res;
+            return lines;
         };
 
-        switch (encoding) {
-            case EncodingResult::Utf16LittleEndian: {
-                std::string converted;
-                converted.reserve(contents.size() / 2_uz);
-                for (auto i = 0_uz; i < contents.size(); i += 2) {
-                    converted.push_back(contents[i]);
-                }
-
-                return getLines(converted);
+        if (encoding == EncodingResult::NotUtf16) {
+            return getLines(contents);
+        } else {
+            std::string converted;
+            converted.reserve(contents.size() / 2_uz);
+            for (auto i = encoding == EncodingResult::Utf16LittleEndian ? 0_uz : 1_uz; i < contents.size(); i += 2) {
+                converted.push_back(contents[i]);
             }
-            case EncodingResult::Utf16BigEndian: {
-                std::string converted;
-                converted.reserve(contents.size() / 2_uz);
-                for (auto i = 1_uz; i < contents.size(); i += 2) {
-                    converted.push_back(contents[i]);
-                }
 
-                return getLines(converted);
-            }
-            case EncodingResult::NotUtf16:
-            default:
-                return getLines(contents);
+            return getLines(converted);
         }
     };
 
@@ -398,10 +385,11 @@ static auto createCompileCommands(
 
         std::ifstream inFileStream{file, std::ios::binary};
         if (!inFileStream) {
-            return std::runtime_error(fmt::format("Failed to open file {}", file.string()));
+            return std::runtime_error{fmt::format("Failed to open file {}", file.string())};
         }
 
         const auto lines = readLines(inFileStream);
+        log("Num Lines: {}\n", lines.size());
 
         for (const auto& line : lines) {
             if (line.starts_with("/c")) {
@@ -410,7 +398,7 @@ static auto createCompileCommands(
                 if (std::none_of(extensions.cbegin(), extensions.cend(), [&line] (const std::string_view extension) {
                     return line.ends_with(extension);
                 })) {
-                    return std::runtime_error(fmt::format("Command did not end with source file: {}", line));
+                    return std::runtime_error{fmt::format("Command did not end with source file: {}", line)};
                 }
 
                 // TODO: allow for spaces in the path to the source file

@@ -32,6 +32,8 @@ C:/my-project> compdb-vs.exe --build-dir MyBuildFolder
 C:/my-project> compdb-vs.exe --build-dir ReleaseBuild --config Release
 ```
 
+This unfortunately means that you will need to re-run `compdb-vs` every time you build with a different config (as well as obviously whenever the files/compiler settings of your project change), with that config specified. Adding the call to a build script you may have can streamline this.
+
 # It Might Break™
 
 I'm making a lot of educated assumptions for this to work. `compdb-vs` recursively looks for `CL.command.1.tlog` files in the build folder which contain the commands given to `cl.exe` to compile each file. It _seems_ like the name of the file is always the last part of the command, and they're always upper-case, so this is an assumption I make to generate the compilation database.
