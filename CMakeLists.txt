@@ -12,7 +12,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fmt)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_executable(compdb-vs src/compdb-vs.cpp)
+add_executable(compdb-vs src/main.cpp src/compdb-vs.cpp)
 
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
     target_compile_definitions(compdb-vs PRIVATE COMPDBVS_DEBUG)

@@ -20,285 +20,15 @@
  * Generate a compilation database based on Visual Studio build files
 */
 
-#include <fmt/core.h>
-#include <fmt/ranges.h>
+#include "compdb-vs.hpp"
 
-#include <nlohmann/json.hpp>
-
-#include <algorithm>
-#include <cstddef>
-#include <cstring>
-#include <filesystem>
 #include <fstream>
-#include <span>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
-#include <variant>
-#include <vector>
+#include <ranges>
 
-#define COMPDB_VS_MAJOR_VERSION 1
-#define COMPDB_VS_MINOR_VERSION 0
-#define COMPDB_VS_PATCH_NUMBER  0
+namespace compdbvs {
+bool g_verbose = false;
 
-static constexpr std::size_t operator""_uz (unsigned long long int value)
-{
-    return static_cast<std::size_t>(value);
-}
-
-struct [[nodiscard]] CompileCommand
-{
-    std::string directory;
-    std::string command;
-    std::string file;
-};
-
-template<typename TResult, typename TException> requires(std::is_base_of_v<std::exception, TException>)
-class [[nodiscard]] Result
-{
-public:
-    class BadResultAccess : public std::exception
-    {
-    public:
-        explicit BadResultAccess(std::string_view message)
-            : m_message{fmt::format("Bad variant access: {}", message)}
-        {
-
-        }
-
-        BadResultAccess(const BadResultAccess&) = default;
-        BadResultAccess(BadResultAccess&&) noexcept = default;
-        BadResultAccess& operator=(const BadResultAccess&) = default;
-        BadResultAccess& operator=(BadResultAccess&&) noexcept = default;
-
-        ~BadResultAccess() override = default;
-
-        [[nodiscard]] const char* what() const override
-        {
-            return m_message.c_str();
-        }
-
-    private:
-        std::string m_message;
-    };
-
-    Result(TResult result) : m_data{std::move(result)}
-    {
-
-    }
-
-    Result(TException exception) : m_data{std::move(exception)}
-    {
-
-    }
-
-    Result(const Result&) = default;
-    Result(Result&&) noexcept = default;
-    Result& operator=(const Result&) = default;
-    Result& operator=(Result&&) noexcept = default;
-    ~Result() = default;
-
-    [[nodiscard]] auto isOk() const noexcept -> bool
-    {
-        return m_data.index() == 0_uz;
-    }
-
-    [[nodiscard]] auto isErr() const noexcept -> bool
-    {
-        return m_data.index() == 1_uz;
-    }
-
-    [[nodiscard]] auto value() -> TResult&
-    {
-        if (isErr()) {
-            throw BadResultAccess("Tried to get value on an error result");
-        }
-
-        return std::get<0_uz>(m_data);
-    }
-
-    [[nodiscard]] auto value() const -> const TResult&
-    {
-        if (isErr()) {
-            throw BadResultAccess("Tried to get value on an error result");
-        }
-
-        return std::get<0_uz>(m_data);
-    }
-
-    [[nodiscard]] auto error() -> TException&
-    {
-        if (isOk()) {
-            throw BadResultAccess("Tried to get error on an value result");
-        }
-
-        return std::get<1_uz>(m_data);
-    }
-
-    [[nodiscard]] auto error() const -> const TException&
-    {
-        if (isOk()) {
-            throw BadResultAccess("Tried to get error on an value result");
-        }
-
-        return std::get<1_uz>(m_data);
-    }
-
-    [[nodiscard]] auto operator*() -> TResult&
-    {
-        return value();
-    }
-
-    [[nodiscard]] auto operator*() const -> const TResult&
-    {
-        return value();
-    }
-
-    [[nodiscard]] auto operator->() -> TResult*
-    {
-        return &value();
-    }
-
-    [[nodiscard]] auto operator->() const -> const TResult*
-    {
-        return &value();
-    }
-
-    [[nodiscard]] operator bool() const noexcept
-    {
-        return isOk();
-    }
-
-private:
-    std::variant<TResult, TException> m_data;
-};
-
-namespace fs = std::filesystem;
-
-[[nodiscard]] static auto findTlogFiles(
-    const fs::path& buildDir,
-    std::string_view config
-) -> Result<std::vector<fs::path>, std::runtime_error>;
-
-[[nodiscard]] static auto createCompileCommands(
-    const fs::path& buildDir,
-    std::span<const fs::path> tlogFiles
-) -> Result<std::vector<CompileCommand>, std::runtime_error>;
-
-static bool s_verbose = false;
-
-template<typename... Ts>
-static auto log(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
-{
-    if (s_verbose) {
-        fmt::print(message, std::forward<Ts>(formatArgs)...);
-    }
-}
-
-template<typename... Ts>
-static auto logError(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
-{
-    fmt::print(stderr, message, std::forward<Ts>(formatArgs)...);
-}
-
-static auto help() -> void
-{
-    fmt::print("compdb-vs {}:{}:{}\n\n", COMPDB_VS_MAJOR_VERSION, COMPDB_VS_MINOR_VERSION, COMPDB_VS_PATCH_NUMBER);
-
-    fmt::print("Usage:\n");
-    fmt::print("    compdb-vs.exe [options]\n\n");
-
-    fmt::print("Options:\n");
-    fmt::print("    --help/-h                   Print this message and exit\n");
-    fmt::print("    --config/-c <config>        Specify the build config you want to generate a compilation database for (Debug, Release etc) [default: Debug]\n");
-    fmt::print("    --build-dir/-bd <dir-name>  Specify the build directory relative to the current working directory to look for VS build files and generate the compilation database [default: build]\n");
-    fmt::print("    --verbose/-v                Enable verbose mode\n");
-}
-
-auto main(int argc, const char* argv[]) -> int
-{
-    std::string config = "Debug";
-    std::string buildDir = "build";
-    const auto numArgs = static_cast<std::size_t>(argc);
-
-    for (auto i = 1_uz; i < numArgs; i++) {
-        const auto arg = argv[i];
-
-        if (std::strcmp(arg, "--config") == 0 || std::strcmp(arg, "-c") == 0) {
-            if (i == numArgs - 1_uz) {
-                logError("Expected value for config\n");
-                return -1;
-            }
-
-            config = argv[++i];
-        } else if (std::strcmp(arg, "--build-dir") == 0 || std::strcmp(arg, "-bd") == 0) {
-            if (i == numArgs - 1_uz) {
-                logError("Expected value for build-dir\n");
-                return -1;
-            }
-
-            buildDir = argv[++i];
-        } else if (std::strcmp(arg, "--verbose") == 0 || std::strcmp(arg, "-v") == 0) {
-            s_verbose = true;
-        } else if (std::strcmp(arg, "--help") == 0 || std::strcmp(arg, "-h") == 0) {
-            help();
-            return 0;
-        }
-    }
-    
-    const auto fullBuildDir = fs::current_path() / buildDir;
-
-    const auto tlogFiles = findTlogFiles(fullBuildDir, config);
-    if (!tlogFiles) {
-        logError("{}\n", tlogFiles.error().what());
-        return -1;
-    }
-
-    log("\n");
-
-    const auto compileCommands = createCompileCommands(fullBuildDir, *tlogFiles);
-    if (!compileCommands) {
-        logError("{}\n", compileCommands.error().what());
-        return -1;
-    }
-
-    log("\n");
-
-    using namespace nlohmann;
-    auto outputJson = json::array();
-
-    log("Writing compile_commands.json...\n");
-
-    for (const auto& command : *compileCommands) {
-#ifdef COMPDBVS_DEBUG
-        log("Command:\n");
-        log("directory: {}\n", command.directory);
-        log("command: {}\n", command.command);
-        log("file: {}\n", command.file);
-        log("\n");
-#endif
-
-        outputJson.push_back({
-            {"directory", command.directory},
-            {"command", command.command},
-            {"file", command.file},
-        });
-    }
-
-    const auto outputPath = fullBuildDir / "compile_commands.json";
-    std::ofstream outStream{outputPath};
-    outStream << std::setw(4) << outputJson;
-
-    if (!outStream) {
-        logError("Failed to write compile_commands.json\n");
-        return -1;
-    }
-}
-
-static auto findTlogFiles(
+auto findTlogFiles(
     const fs::path& buildDir,
     std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>
@@ -314,7 +44,7 @@ static auto findTlogFiles(
             const auto& path = entry.path();
 
             if (fs::is_directory(path)) {
-                log("Looking in {}...\n", buildDir.string());
+                log("Looking in {}...\n", path.string());
                 auto innerFiles = findTlogFiles(path, config);
                 if (!innerFiles) {
                     return innerFiles.error();
@@ -340,7 +70,7 @@ static auto findTlogFiles(
     return tlogFiles;
 }
 
-static auto createCompileCommands(
+auto createCompileCommands(
     const fs::path& buildDir,
     std::span<const fs::path> tlogFiles
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>
@@ -467,4 +197,5 @@ static auto createCompileCommands(
 
     return compileCommands;
 }
+} // namespace compdbvs
 
