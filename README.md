@@ -13,7 +13,7 @@ Building and running this project has only been tested on Windows because, well,
 ```bash
 > mkdir build
 > cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-> cmake --build build
+> cmake --build build --config Release
 ```
 
 Then, either install it with `cmake --install build` or add the build directory to your path.

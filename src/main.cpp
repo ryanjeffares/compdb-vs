@@ -32,7 +32,7 @@
 
 static auto help() -> void
 {
-    fmt::print("compdb-vs {}:{}:{}\n\n", COMPDB_VS_MAJOR_VERSION, COMPDB_VS_MINOR_VERSION, COMPDB_VS_PATCH_NUMBER);
+    fmt::print("compdb-vs {}.{}.{}\n\n", COMPDB_VS_MAJOR_VERSION, COMPDB_VS_MINOR_VERSION, COMPDB_VS_PATCH_NUMBER);
 
     fmt::print("Usage:\n");
     fmt::print("    compdb-vs.exe [options]\n\n");
@@ -58,14 +58,14 @@ auto main(int argc, const char* argv[]) -> int
         if (std::strcmp(arg, "--config") == 0 || std::strcmp(arg, "-c") == 0) {
             if (i == numArgs - 1_uz) {
                 compdbvs::logError("Expected value for config\n");
-                return -1;
+                return 1;
             }
 
             config = argv[++i];
         } else if (std::strcmp(arg, "--build-dir") == 0 || std::strcmp(arg, "-bd") == 0) {
             if (i == numArgs - 1_uz) {
                 compdbvs::logError("Expected value for build-dir\n");
-                return -1;
+                return 1;
             }
 
             buildDir = argv[++i];
@@ -74,6 +74,9 @@ auto main(int argc, const char* argv[]) -> int
         } else if (std::strcmp(arg, "--help") == 0 || std::strcmp(arg, "-h") == 0) {
             help();
             return 0;
+        } else {
+            compdbvs::logError("Unrecognised argument '{}', see --help for usage\n", arg);
+            return 1;
         }
     }
     
@@ -82,7 +85,7 @@ auto main(int argc, const char* argv[]) -> int
     const auto tlogFiles = compdbvs::findTlogFiles(fullBuildDir, config);
     if (!tlogFiles) {
         compdbvs::logError("{}\n", tlogFiles.error().what());
-        return -1;
+        return 1;
     }
 
     compdbvs::log("\n");
@@ -90,7 +93,7 @@ auto main(int argc, const char* argv[]) -> int
     const auto compileCommands = compdbvs::createCompileCommands(fullBuildDir, *tlogFiles);
     if (!compileCommands) {
         compdbvs::logError("{}\n", compileCommands.error().what());
-        return -1;
+        return 1;
     }
 
     compdbvs::log("\n");
@@ -122,7 +125,7 @@ auto main(int argc, const char* argv[]) -> int
 
     if (!outStream) {
         compdbvs::logError("Failed to write compile_commands.json\n");
-        return -1;
+        return 1;
     }
 }
 

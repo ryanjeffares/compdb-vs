@@ -76,5 +76,5 @@ inline auto logError(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> v
 }
 } // namespace compdbvs
 
-#endif
+#endif // #ifndef COMPDBVS_HPP
 
