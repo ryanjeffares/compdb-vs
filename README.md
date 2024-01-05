@@ -8,7 +8,7 @@ This tool is _unstable_ and _not well tested_. It seems to work fine for my own 
 
 # Usage
 
-First, build the project.
+Building and running this project has only been tested on Windows because, well, where else would you use it? First, build the project.
 
 ```bash
 > mkdir build
