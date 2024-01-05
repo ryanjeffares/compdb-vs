@@ -401,8 +401,21 @@ static auto createCompileCommands(
                     return std::runtime_error{fmt::format("Command did not end with source file: {}", line)};
                 }
 
-                // TODO: allow for spaces in the path to the source file
-                auto targetFile = line.substr(line.find_last_of(' '));
+                // go from the end of the command until we find the last occurance of a Windows drive letter and ':'
+                // that will be the start of the full path to the source file
+                std::string targetFile;
+                for (auto i = line.size() - 2_uz; i > 0_uz; i--) {
+                    if (std::isalpha(line[i]) && line[i + 1_uz] == ':') {
+                        targetFile = line.substr(i);
+                        break;
+                    }
+                }
+
+                if (targetFile.empty()) {
+                    return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
+                }
+
+                log("Source File: {}\n", targetFile);
 
                 std::string command{"cl.exe "};
                 command += line;
