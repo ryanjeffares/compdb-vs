@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.17)
 project(compdb-vs)
 
+include(CTest)
 include(FetchContent)
 
 FetchContent_Declare(
@@ -29,3 +30,6 @@ target_link_libraries(compdb-vs PRIVATE fmt::fmt)
 target_link_libraries(compdb-vs-tests PRIVATE fmt::fmt)
 
 install(TARGETS compdb-vs)
+
+add_test(NAME TestAll COMMAND compdb-vs-tests)
+
