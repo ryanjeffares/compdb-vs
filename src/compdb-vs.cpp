@@ -25,6 +25,8 @@
 #include <fstream>
 #include <ranges>
 
+#include <windows.h>
+
 namespace compdbvs {
 bool g_verbose = false;
 
@@ -40,7 +42,7 @@ auto findTlogFiles(
     }
 
     try {
-        for (const auto& entry : fs::directory_iterator(buildDir)) {
+        for (const auto& entry : fs::directory_iterator{buildDir}) {
             const auto& path = entry.path();
 
             if (fs::is_directory(path)) {
@@ -70,6 +72,55 @@ auto findTlogFiles(
     return tlogFiles;
 }
 
+[[nodiscard]] static auto getCorrectCasingForPath(const fs::path& filePath) -> Result<fs::path, std::runtime_error> {
+    // why does std::filesystem not have a function to tell you if a path is a root
+    // that works for Windows drive roots?
+    auto isDriveRoot = [] (const fs::path& path) -> bool {
+        if (!path.has_root_name()) {
+            return false;
+        }
+
+        // skip the drive letter
+        auto it = ++path.begin();
+
+        // skip the root directory
+        if (path.has_root_directory()) {
+            it++;
+        }
+
+        return it == path.end();
+    };
+
+    // why does std::string not have functions to change case?
+    auto toLower = [] (std::string_view string) -> std::string {
+        std::string res;
+        for (const auto c : string) {
+            res.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        }
+        return res;
+    };
+
+    if (isDriveRoot(filePath)) {
+        return filePath;
+    }
+
+    const auto parent = filePath.parent_path();
+    for (const auto& entry : fs::directory_iterator{parent}) {
+        // need to compare the actual text but ignore case because for some reason 
+        // fs::equivalent returns true for 'C:/Users/' and 'C:/Documents and Settings/'
+        if (toLower(entry.path().filename().string()) == toLower(filePath.filename().string())) {
+            const auto res = getCorrectCasingForPath(parent);
+            if (res) {
+                return *res / entry.path().filename();
+            } else {
+                return res.error();
+            }
+        }
+    }
+
+    return std::runtime_error{fmt::format("Didn't find entry in parent for {} that matched {}", parent.string(), filePath.filename().string())};
+}
+
 auto createCompileCommands(
     const fs::path& buildDir,
     std::span<const fs::path> tlogFiles
@@ -89,8 +140,8 @@ auto createCompileCommands(
             } else if (file.get() == 0xFE && file.get() == 0xFF) {
                 return EncodingResult::Utf16BigEndian;
             } else {
-                file.unget();
-                file.unget();
+                file.clear();
+                file.seekg(0, std::ios::beg);
                 return EncodingResult::NotUtf16;
             }
         }(file);
@@ -153,38 +204,34 @@ auto createCompileCommands(
                     return std::runtime_error{fmt::format("Command did not end with source file: {}", line)};
                 }
 
+                std::string command{"cl.exe "};
+
                 // go from the end of the command until we find the last occurance of a Windows drive letter and ':'
                 // that will be the start of the full path to the source file
                 std::string targetFile;
                 for (auto i = line.size() - 2_uz; i > 0_uz; i--) {
                     if (std::isalpha(line[i]) && line[i + 1_uz] == ':') {
-                        targetFile = line.substr(i);
-                        break;
+                        const auto fileName = line.substr(i);
+
+                        // paths in the tlog files seem to all be converted to all upper case.
+                        auto correctCasing = getCorrectCasingForPath(fileName);
+                        if (correctCasing) {
+                            targetFile = correctCasing->string();
+                            log("Source File: {}\n", targetFile);
+
+                            auto lineFixedCase = line;
+                            lineFixedCase.replace(i, fileName.size(), targetFile);
+                            command.append(std::move(lineFixedCase));
+                            break;
+                        } else {
+                            return correctCasing.error();
+                        }
                     }
                 }
 
                 if (targetFile.empty()) {
                     return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
                 }
-
-                log("Source File: {}\n", targetFile);
-
-                std::string command{"cl.exe "};
-                command += line;
-
-                // TODO: clangd docs say to prefer a list of arguments, but that doesn't seem to work...
-                // std::vector<std::string> arguments{"cl.exe"};
-                // I swear you're supposed to be able to construct a string/string_view from just the result of split...
-                // for (const auto arg : line | std::views::split(' ') | std::views::transform([] (const auto split) {
-                //     return std::string{split.data(), split.size()};
-                // })) {
-                //     if (std::find_if(extensions.cbegin(), extensions.cend(), [arg] (const std::string_view extension) {
-                //         return arg.ends_with(extension);
-                //     }) != extensions.cend()) {
-                //         targetFile = std::string{std::string_view{arg}};
-                //     }
-                //     arguments.emplace_back(arg);
-                // }
 
                 compileCommands.push_back(CompileCommand{
                     .directory = buildDir.string(),

@@ -23,14 +23,15 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 set(COMPDBVS_COMPILE_OPTIONS /std:c++20 /W4 /WX /external:templates- /external:W0 /external:I ${CMAKE_CURRENT_SOURCE_DIR}/third-party)
+set(COMPDBVS_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/third-party/)
 
 target_compile_options(compdb-vs-lib PRIVATE ${COMPDBVS_COMPILE_OPTIONS})
 target_compile_options(compdb-vs-tests PRIVATE ${COMPDBVS_COMPILE_OPTIONS})
 target_compile_options(compdb-vs PRIVATE ${COMPDBVS_COMPILE_OPTIONS})
 
-target_include_directories(compdb-vs-lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third-party/)
-target_include_directories(compdb-vs-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third-party/)
-target_include_directories(compdb-vs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third-party/)
+target_include_directories(compdb-vs-lib PRIVATE ${COMPDBVS_INCLUDE_DIRECTORIES})
+target_include_directories(compdb-vs-tests PRIVATE ${COMPDBVS_INCLUDE_DIRECTORIES})
+target_include_directories(compdb-vs PRIVATE ${COMPDBVS_INCLUDE_DIRECTORIES})
 
 target_link_libraries(compdb-vs-lib PRIVATE fmt::fmt)
 target_link_libraries(compdb-vs-tests PRIVATE fmt::fmt compdb-vs-lib)
