@@ -30,7 +30,10 @@
 *.app
 
 # Build output
-**/cmake-build-debug
+cmake-build-debug/**/*
+cmake-build-release/**/*
+cmake-build-debug-visual-studio/**/*
+cmake-build-release-visual-studio/**/*
 **/CMakeCache.txt
 **/cmake_install.cmake
 **/install_manifest.txt

@@ -40,7 +40,8 @@ static auto help() -> void
     fmt::print("Options:\n");
     fmt::print("    --help/-h                   Print this message and exit\n");
     fmt::print("    --config/-c <config>        Specify the build config you want to generate a compilation database for (Debug, Release etc) [default: Debug]\n");
-    fmt::print("    --build-dir/-bd <dir-name>  Specify the build directory relative to the current working directory to look for VS build files and generate the compilation database [default: build]\n");
+    fmt::print("    --build-dir/-b <dir-name>   Specify the build directory relative to the current working directory to look for VS build files and generate the compilation database [default: build]\n");
+    fmt::print("    --skip-headers/-sh          Skip adding header files to the compilation database\n");
     fmt::print("    --verbose/-v                Enable verbose mode\n");
 }
 
@@ -51,6 +52,7 @@ auto main(int argc, const char* argv[]) -> int
     std::string config = "Debug";
     std::string buildDir = "build";
     const auto numArgs = static_cast<std::size_t>(argc);
+    auto skipHeaders = false;
 
     for (auto i = 1_uz; i < numArgs; i++) {
         const auto arg = argv[i];
@@ -62,13 +64,15 @@ auto main(int argc, const char* argv[]) -> int
             }
 
             config = argv[++i];
-        } else if (std::strcmp(arg, "--build-dir") == 0 || std::strcmp(arg, "-bd") == 0) {
+        } else if (std::strcmp(arg, "--build-dir") == 0 || std::strcmp(arg, "-b") == 0) {
             if (i == numArgs - 1_uz) {
                 compdbvs::logError("Expected value for build-dir\n");
                 return 1;
             }
 
             buildDir = argv[++i];
+        } else if (std::strcmp(arg, "--skip-headers") == 0 || std::strcmp(arg, "-sh") == 0) {
+            skipHeaders = true;
         } else if (std::strcmp(arg, "--verbose") == 0 || std::strcmp(arg, "-v") == 0) {
             compdbvs::g_verbose = true;
         } else if (std::strcmp(arg, "--help") == 0 || std::strcmp(arg, "-h") == 0) {
@@ -90,7 +94,7 @@ auto main(int argc, const char* argv[]) -> int
 
     compdbvs::log("\n");
 
-    const auto compileCommands = compdbvs::createCompileCommands(fullBuildDir, *tlogFiles);
+    const auto compileCommands = compdbvs::createCompileCommands(fullBuildDir, *tlogFiles, skipHeaders);
     if (!compileCommands) {
         compdbvs::logError("{}\n", compileCommands.error().what());
         return 1;

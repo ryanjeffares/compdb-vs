@@ -53,7 +53,7 @@ static auto testCreateCompileCommands() -> void
         mu_check(tlogFiles);
         mu_check(tlogFiles->size() == 2_uz);
 
-        const auto compileCommands = createCompileCommands("build", *tlogFiles);
+        const auto compileCommands = createCompileCommands("build", *tlogFiles, false);
         mu_check(compileCommands);
         mu_check(compileCommands->size() == 5_uz);
     }
@@ -63,7 +63,7 @@ static auto testCreateCompileCommands() -> void
         mu_check(tlogFiles);
         mu_check(tlogFiles->empty());
 
-        const auto compileCommands = createCompileCommands("build", *tlogFiles);
+        const auto compileCommands = createCompileCommands("build", *tlogFiles, false);
         mu_check(compileCommands);
         mu_check(compileCommands->empty());
     }

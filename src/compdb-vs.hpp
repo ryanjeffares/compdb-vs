@@ -57,7 +57,8 @@ struct [[nodiscard]] CompileCommand
 
 [[nodiscard]] auto createCompileCommands(
     const fs::path& buildDir,
-    std::span<const fs::path> tlogFiles
+    std::span<const fs::path> tlogFiles,
+    bool skipHeaders
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>;
 
 extern bool g_verbose;

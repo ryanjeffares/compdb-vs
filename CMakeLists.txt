@@ -22,7 +22,7 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
     target_compile_definitions(compdb-vs PRIVATE COMPDBVS_DEBUG)
 endif()
 
-set(COMPDBVS_COMPILE_OPTIONS /std:c++20 /W4 /WX /external:templates- /external:W0 /external:I ${CMAKE_CURRENT_SOURCE_DIR}/third-party)
+set(COMPDBVS_COMPILE_OPTIONS /std:c++latest /W4 /WX /external:templates- /external:W0 /external:I ${CMAKE_CURRENT_SOURCE_DIR}/third-party)
 set(COMPDBVS_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/third-party/)
 
 target_compile_options(compdb-vs-lib PRIVATE ${COMPDBVS_COMPILE_OPTIONS})
