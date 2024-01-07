@@ -25,6 +25,7 @@
 
 #include "result.hpp"
 
+#include <fmt/color.h>
 #include <fmt/core.h>
 
 #include <cstddef>
@@ -72,6 +73,7 @@ inline auto log(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
 template<typename... Ts>
 inline auto logError(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
 {
+    fmt::print(stderr, fmt::emphasis::bold | fmt::fg(fmt::color::red), "ERROR: ");
     fmt::print(stderr, message, std::forward<Ts>(formatArgs)...);
 }
 } // namespace compdbvs
