@@ -410,11 +410,19 @@ auto createCompileCommands(
                 return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
             }
             
-            compileCommands.push_back(CompileCommand{
-                .directory = buildDir.string(),
-                .command = std::move(command),
-                .file = std::move(targetFile),
-            });
+            if (std::none_of(
+                compileCommands.cbegin(),
+                compileCommands.cend(),
+                [&targetFile] (const CompileCommand& compileCommand) {
+                    return compileCommand.file == targetFile;
+                }
+            )) {
+                compileCommands.push_back(CompileCommand{
+                    .directory = buildDir.string(),
+                    .command = std::move(command),
+                    .file = std::move(targetFile),
+                });
+            }
         }
     }
 

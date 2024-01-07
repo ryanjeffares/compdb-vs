@@ -49,18 +49,17 @@ static auto testResult() -> void
 static auto testCreateCompileCommands() -> void
 {
     {
-        const auto tlogFiles = findTlogFiles(fs::current_path() / "tests" / "test-build-dir-1", "Debug");
+        const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-build-dir-1", "Debug");
         mu_check(tlogFiles);
         mu_check(tlogFiles->size() == 2_uz);
 
         const auto compileCommands = createCompileCommands("build", *tlogFiles, true);
         mu_check(compileCommands);
-        //fmt::print("{}\n", compileCommands->size());
-        //mu_check(compileCommands->size() == 5_uz);
+        mu_check(compileCommands->size() == 3_uz);
     }
 
     {
-        const auto tlogFiles = findTlogFiles(fs::current_path() / "tests" / "test-build-dir-2", "Debug");
+        const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-build-dir-2", "Debug");
         mu_check(tlogFiles);
         mu_check(tlogFiles->empty());
 
@@ -70,7 +69,7 @@ static auto testCreateCompileCommands() -> void
     }
 
     {
-        const auto tlogFiles = findTlogFiles(fs::current_path() / "foo", "bar");
+        const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "foo", "bar");
         mu_check(!tlogFiles);
     }
 }
