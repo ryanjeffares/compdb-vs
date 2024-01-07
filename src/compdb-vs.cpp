@@ -272,7 +272,7 @@ auto findTlogFiles(
         const auto& sourceFile = sourceCompileCommand.file;
         log("Finding included headers for {}\n", sourceFile);
 
-        std::ifstream inFileStream{sourceFile};
+        std::ifstream inFileStream{sourceFile, std::ios::binary};
         if (!inFileStream) {
             return std::runtime_error{fmt::format("Failed to open file {} to create compile commands for included headers", sourceFile)};
         }
