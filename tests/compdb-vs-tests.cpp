@@ -55,7 +55,7 @@ static auto testCreateCompileCommands() -> void
 
         const auto compileCommands = createCompileCommands("build", *tlogFiles, false);
         mu_check(compileCommands);
-        mu_check(compileCommands->size() == 5_uz);
+        mu_check(compileCommands->size() == 7_uz);
     }
 
     {
