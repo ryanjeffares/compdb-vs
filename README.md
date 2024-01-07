@@ -34,6 +34,8 @@ C:/my-project> compdb-vs.exe --build-dir ReleaseBuild --config Release
 
 This unfortunately means that you will need to re-run `compdb-vs` every time you build with a different config (as well as obviously whenever the files/compiler settings of your project change), with that config specified. Adding the call to a build script you may have can streamline this.
 
+By default, `compdb-vs` will also add entries for any header files you include in your source files. It does this by going through each item in the generated compilation database, parsing the file to see what files are included with an `#include` directive, then trying to append these included files to all of the include paths in that entry in the database, and for every one of these that exist it adds an entry with the same compile options. It does this until no additional entries are made. You can disable this behaviour with the `--skip-headers/-sh` flag.
+
 ## It Might Break™
 
 I'm making a lot of educated assumptions for this to work. `compdb-vs` recursively looks for `CL.command.1.tlog` files in the build folder which contain the commands given to `cl.exe` to compile each file. It _seems_ like the name of the file is always the last part of the command, and they're always upper-case, so this is an assumption I make to match the source files in the generated compilation database entries.
@@ -44,7 +46,9 @@ If any of the above conventions change by the hands of Microsoft or LLVM, this w
 
 ## Known Issues
 * It _seems_ like `clangd` will ignore an argument it doesn't recognise, but there might be some Visual Studio argument that will break it.
+* When adding entries for header files, if two source files include the same header file but with _different_ compile options, only the first one that `compdb-vs` finds will be used.
+* Header file searching can produce false positives - if `Foo.cpp` includes `Foo.hpp` with `#include "Foo.hpp"` because they're in the same directory, but `Foo.hpp` also exists in an include path for `Foo.cpp`, an entry in the compilation database will be made for `<include-path>/Foo.hpp` with `Foo.cpp`'s compile options, which may not be correct.
 
 ## TODO
-* Add entries to the compilation database for header files.
+* Better testing.
 
