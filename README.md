@@ -47,7 +47,6 @@ If any of the above conventions change by the hands of Microsoft or LLVM, this w
 ## Known Issues
 * It _seems_ like `clangd` will ignore an argument it doesn't recognise, but there might be some Visual Studio argument that will break it.
 * When adding entries for header files, if two source files include the same header file but with _different_ compile options, only the first one that `compdb-vs` finds will be used.
-* Header file searching can produce false positives - if `Foo.cpp` includes `Foo.hpp` with `#include "Foo.hpp"` because they're in the same directory, but `Foo.hpp` also exists in an include path for `Foo.cpp`, an entry in the compilation database will be made for `<include-path>/Foo.hpp` with `Foo.cpp`'s compile options, which may not be correct.
 
 ## TODO
 * Better testing.

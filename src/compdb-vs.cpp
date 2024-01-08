@@ -20,7 +20,7 @@
  * Generate a compilation database based on Visual Studio build files
 */
 
-    #include "compdb-vs.hpp"
+#include "compdb-vs.hpp"
 
 #include <fstream>
 #include <ranges>
@@ -332,11 +332,10 @@ auto findTlogFiles(
         }
 
         for (const auto& [file, usesQuotes] : includedFiles) {
+            // If the file is included using quotes, search in the source file's directory first
+            // if it's also found on an include path, it will be ignored if it was found on the
+            // source file's relative path first. This mirrors how the preprocessor works.
             if (usesQuotes) {
-                // need to check relative to the source file as well as include paths
-                // give precedence to files included with quotes, since if you write `#include "Foo.hpp"` because `Foo.hpp`
-                // exists in the same directory as the file including it, but `Foo.hpp` also exists on one of your include paths,
-                // you probably meant the one in the same directory.
                 const auto relativePath = fs::path{sourceFile}.parent_path();
                 if (auto err = createCompileCommand(relativePath, file, sourceFile, command)) {
                     return *err;
