@@ -1,4 +1,0 @@
-C:/Users/ryand/Documents/Dev/tools/compdb-vs/tests/test-project-1/build/CMakeFiles/test-project-lib.dir
-C:/Users/ryand/Documents/Dev/tools/compdb-vs/tests/test-project-1/build/CMakeFiles/test-project-exe.dir
-C:/Users/ryand/Documents/Dev/tools/compdb-vs/tests/test-project-1/build/CMakeFiles/ALL_BUILD.dir
-C:/Users/ryand/Documents/Dev/tools/compdb-vs/tests/test-project-1/build/CMakeFiles/ZERO_CHECK.dir

@@ -37,12 +37,13 @@ cmake-build-release-visual-studio/**/*
 **/CMakeCache.txt
 **/cmake_install.cmake
 **/install_manifest.txt
+**/CMakeFiles/
 **/CTestTestfile.cmake
 **/Makefile
 **/*.cbp
 **/CMakeScripts
 **/compile_commands.json
-build/**/*
+**/build/**/*
 include/divisible/*
 
 # Local 
@@ -52,4 +53,3 @@ include/*
 lib/*
 bin/*
 test/test_runner
-
