@@ -26,7 +26,7 @@
 #include <minunit/minunit.h>
 
 namespace compdbvs::tests {
-static auto testResult() -> void
+static auto test_Result() -> void
 {
     {
         Result<int, std::exception> res = 1;
@@ -46,7 +46,35 @@ static auto testResult() -> void
     }
 }
 
-[[maybe_unused]] static auto testCreateCompileCommands() -> void
+static auto test_getCorrectCasingForPath() -> void
+{
+    auto toUpper = [] (std::string& string) -> void {
+        for (auto& c : string) {
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        }
+    };
+
+    const auto path = fs::current_path();
+    fs::path upperCase;
+    for (auto& element : path) {
+        auto s = element.string();
+        toUpper(s);
+        upperCase /= s;
+    }
+
+    mu_check(fs::equivalent(path, upperCase));
+
+    auto fixed = detail::getCorrectCasingForPath(upperCase);
+    mu_check(fixed);
+    mu_check(fs::equivalent(path, *fixed));
+    mu_check(path == *fixed);
+
+    fs::path doesntExist = "C:/Foo";
+    fixed = detail::getCorrectCasingForPath(doesntExist);
+    mu_check(fixed.isErr());
+}
+
+static auto test_fullProgramFlow() -> void
 {
     {
         const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-project-1", "Debug");
@@ -56,13 +84,13 @@ static auto testResult() -> void
         {
             const auto compileCommands = createCompileCommands("build", *tlogFiles, false);
             mu_check(compileCommands);
-            mu_check(compileCommands->size() == 6_uz);
+            mu_check(compileCommands->size() == 7_uz);
         }
 
         {
             const auto compileCommands = createCompileCommands("build", *tlogFiles, true);
             mu_check(compileCommands);
-            mu_check(compileCommands->size() == 4_uz);
+            mu_check(compileCommands->size() == 5_uz);
         }
     }
 
@@ -84,8 +112,9 @@ static auto testResult() -> void
 
 MU_TEST_SUITE(testSuite)
 {
-    MU_RUN_TEST(testResult);
-    MU_RUN_TEST(testCreateCompileCommands);
+    MU_RUN_TEST(test_Result);
+    MU_RUN_TEST(test_getCorrectCasingForPath);
+    MU_RUN_TEST(test_fullProgramFlow);
 }
 } // namespace compdbvs_tests
 
