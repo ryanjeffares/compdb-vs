@@ -43,6 +43,8 @@ inline constexpr std::size_t operator""_uz (unsigned long long int value)
 namespace compdbvs {
 namespace fs = std::filesystem;
 
+extern bool g_verbose;
+
 struct [[nodiscard]] CompileCommand
 {
     std::string directory;
@@ -61,7 +63,36 @@ struct [[nodiscard]] CompileCommand
     bool skipHeaders
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>;
 
-extern bool g_verbose;
+namespace detail {
+[[nodiscard]] auto getCorrectCasingForPath(
+    const fs::path& path
+) -> Result<fs::path, std::runtime_error>;
+
+// slightly naive not to include other encodings,
+// but like realistically what else would there be
+// this is just because the tlog files are utf16 LE
+enum class FileEncoding
+{
+    Utf8,
+    Utf16BigEndian,
+    Utf16LittleEndian,
+};
+
+[[nodiscard]] auto getFileEncoding(std::istream& stream) -> FileEncoding;
+
+[[nodiscard]] auto readFileLines(
+    std::istream& stream
+) -> Result<std::vector<std::string>, std::runtime_error>;
+
+[[nodiscard]] auto findIncludePaths(
+    std::string_view command
+) -> Result<std::vector<fs::path>, std::runtime_error>;
+
+[[nodiscard]] auto createCompileCommandsForHeaders(
+    const fs::path& buildDir,
+    std::span<const CompileCommand> sourceCompileCommands
+) -> Result<std::vector<CompileCommand>, std::runtime_error>;
+} // namespace detail
 
 template<typename... Ts>
 inline auto log(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void

@@ -70,7 +70,119 @@ auto findTlogFiles(
     return tlogFiles;
 }
 
-[[nodiscard]] static auto getCorrectCasingForPath(const fs::path& filePath) -> Result<fs::path, std::runtime_error> {
+auto createCompileCommands(
+    const fs::path& buildDir,
+    std::span<const fs::path> tlogFiles,
+    bool skipHeaders
+) -> Result<std::vector<CompileCommand>, std::runtime_error>
+{
+    std::vector<std::string_view> extensions = {
+        ".C", ".CC", ".CPP", ".CXX",
+    };
+
+    std::vector<CompileCommand> compileCommands;
+
+    for (const auto& file : tlogFiles) {
+        log("File: {}\n", file.string());
+
+        std::ifstream inFileStream{file, std::ios::binary};
+        const auto lines = detail::readFileLines(inFileStream);
+        if (!lines) {
+            return lines.error();
+        }
+
+        for (const auto& line : *lines) {
+            if (!line.starts_with("/c")) {
+                continue;
+            }
+
+            log("Command: {}\n", line);
+
+            if (std::none_of(extensions.cbegin(), extensions.cend(), [&line] (const std::string_view extension) {
+                return line.ends_with(extension);
+            })) {
+                return std::runtime_error{fmt::format("Command did not end with source file: {}", line)};
+            }
+
+            std::string command{"cl.exe "};
+
+            // go from the end of the command until we find the last occurrence of a Windows drive letter and ':'
+            // that will be the start of the full path to the source file
+            std::string targetFile;
+            for (auto i = line.size() - 2_uz; i > 0_uz; i--) {
+                if (std::isalpha(line[i]) && line[i + 1_uz] == ':') {
+                    const auto fileName = line.substr(i);
+
+                    // paths in the tlog files seem to all be converted to all upper case.
+                    auto correctCasing = detail::getCorrectCasingForPath(fileName);
+                    if (correctCasing) {
+                        targetFile = correctCasing->string();
+                        log("Source File: {}\n", targetFile);
+
+                        auto lineFixedCase = line;
+                        lineFixedCase.replace(i, fileName.size(), targetFile);
+                        command.append(lineFixedCase);
+                        break;
+                    } else {
+                        return correctCasing.error();
+                    }
+                }
+            }
+
+            if (targetFile.empty()) {
+                return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
+            }
+            
+            if (std::none_of(
+                compileCommands.cbegin(),
+                compileCommands.cend(),
+                [&targetFile] (const CompileCommand& compileCommand) {
+                    return compileCommand.file == targetFile;
+                }
+            )) {
+                compileCommands.push_back(CompileCommand{
+                    .directory = buildDir.string(),
+                    .command = std::move(command),
+                    .file = std::move(targetFile),
+                });
+            }
+        }
+    }
+
+    if (!skipHeaders) {
+        std::optional<std::vector<CompileCommand>> additionalCommands;
+
+        while (true) {
+            auto headersCommands = detail::createCompileCommandsForHeaders(
+                buildDir,
+                additionalCommands ? *additionalCommands : compileCommands
+            );
+
+            if (!headersCommands) {
+                return headersCommands.error();
+            }
+
+            additionalCommands = std::move(*headersCommands);
+            if (additionalCommands->empty()) {
+                break;
+            }
+
+            compileCommands.insert(
+                compileCommands.end(),
+                additionalCommands->begin(),
+                additionalCommands->end()
+            );
+        }
+    }
+
+    return compileCommands;
+}
+
+namespace detail {
+[[nodiscard]] auto getCorrectCasingForPath(
+    const fs::path& filePath
+) -> Result<fs::path, std::runtime_error>
+{
     // why does std::filesystem not have a function to tell you if a path is a root
     // that works for Windows drive roots?
     auto isDriveRoot = [] (const fs::path& path) -> bool {
@@ -79,10 +191,17 @@ auto findTlogFiles(
         }
 
         // skip the drive letter
-        auto it = ++path.begin();
+        auto it = path.begin();
+
+        if (it == path.end()) {
+            // is this right? this was just an empty path..
+            return false;
+        }
+        
+        it++;
 
         // skip the root directory
-        if (path.has_root_directory()) {
+        if (path.has_root_directory() && it != path.end()) {
             it++;
         }
 
@@ -116,36 +235,45 @@ auto findTlogFiles(
         }
     }
 
-    return std::runtime_error{fmt::format("Didn't find entry in parent for {} that matched {}", parent.string(), filePath.filename().string())};
+    return std::runtime_error{
+        fmt::format(
+            "Didn't find entry in parent for {} that matched {}", 
+            parent.string(), 
+            filePath.filename().string()
+        )
+    };
 }
 
-[[nodiscard]] static auto readLines(std::ifstream& file) -> std::vector<std::string>
+[[nodiscard]] auto getFileEncoding(std::istream& stream) -> FileEncoding
 {
-    // the tlog files tend to be encoded as UTF16 little endian, so check for it and convert the text if needs be
-    enum class EncodingResult {
-        NotUtf16, // probably UTF8
-        Utf16LittleEndian,
-        Utf16BigEndian,
-    };
+    const auto first = stream.get();
+    const auto second = stream.get();
 
-    const auto encoding = [] (std::ifstream& file) -> EncodingResult {
-        const auto first = file.get();
-        const auto second = file.get();
+    if (first == 0xFF && second == 0xFE) {
+        return FileEncoding::Utf16LittleEndian;
+    } else if (first == 0xFE && second == 0xFF) {
+        return FileEncoding::Utf16BigEndian;
+    } else {
+        stream.clear();
+        stream.seekg(0, std::ios::beg);
+        return FileEncoding::Utf8;
+    }
+}
 
-        if (first == 0xFF && second == 0xFE) {
-            return EncodingResult::Utf16LittleEndian;
-        } else if (first == 0xFE && second == 0xFF) {
-            return EncodingResult::Utf16BigEndian;
-        } else {
-            file.clear();
-            file.seekg(0, std::ios::beg);
-            return EncodingResult::NotUtf16;
-        }
-    }(file);
+[[nodiscard]] auto readFileLines(
+    std::istream& stream
+) -> Result<std::vector<std::string>, std::runtime_error>
+{
+    if (!stream) {
+        return std::runtime_error{"Invalid file stream"};
+    }
 
-    std::stringstream stream;
-    stream << file.rdbuf();
-    const auto contents = stream.str();
+    const auto encoding = getFileEncoding(stream);
+
+    // TODO: make this more memory efficient
+    std::stringstream readStream;
+    readStream << stream.rdbuf();
+    const auto contents = readStream.str();
 
     auto getLines = [] (std::string_view string) {
         std::vector<std::string> lines;
@@ -161,12 +289,12 @@ auto findTlogFiles(
         return lines;
     };
 
-    if (encoding == EncodingResult::NotUtf16) {
+    if (encoding == FileEncoding::Utf8) {
         return getLines(contents);
     } else {
         std::string converted;
         converted.reserve(contents.size() / 2_uz);
-        for (auto i = encoding == EncodingResult::Utf16LittleEndian ? 0_uz : 1_uz; i < contents.size(); i += 2) {
+        for (auto i = encoding == FileEncoding::Utf16LittleEndian ? 0_uz : 1_uz; i < contents.size(); i += 2) {
             converted.push_back(contents[i]);
         }
 
@@ -174,44 +302,44 @@ auto findTlogFiles(
     }
 }
 
-[[nodiscard]] static auto createCompileCommandsForHeaders(
+[[nodiscard]] auto findIncludePaths(
+    std::string_view command
+) -> Result<std::vector<fs::path>, std::runtime_error>
+{
+    std::vector<fs::path> includePaths;
+
+    auto pos = 0_uz;
+    while ((pos = command.find("/I", pos)) != std::string::npos) {
+        pos += 2_uz;
+
+        while (pos < command.size() && (command[pos] == ' ' || command[pos] == '\t')) {
+            pos++;
+        }
+
+        if (pos >= command.size() && command[pos] != '"') {
+            return std::runtime_error{fmt::format("Ill formed /I directive in command {}", command)};
+        }
+
+        const auto start = pos + 1_uz;
+        const auto end = command.find('"', start);
+        if (end == std::string::npos) {
+            return std::runtime_error{fmt::format("Ill formed /I directive in command {}", command)};
+        }
+
+        auto includePath = command.substr(start, end - start);
+        log("Found include path {}\n", includePath);
+        includePaths.emplace_back(includePath);
+        pos = end + 1_uz;
+    }
+
+    return includePaths;
+}
+
+[[nodiscard]] auto createCompileCommandsForHeaders(
     const fs::path& buildDir,
     std::span<const CompileCommand> sourceCompileCommands
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>
 {
-    auto findIncludePaths = [] (
-        std::string_view argPrefix,
-        std::string_view command,
-        std::vector<fs::path>& includePaths
-    ) -> std::optional<std::runtime_error> {
-        auto pos = 0_uz;
-        while ((pos = command.find(argPrefix, pos)) != std::string::npos) {
-            pos += argPrefix.size();
-
-            while (pos < command.size() && (command[pos] == ' ' || command[pos] == '\t')) {
-                pos++;
-            }
-
-            if (pos >= command.size() && command[pos] != '"') {
-                return std::runtime_error{fmt::format("Ill formed /I directive in command {}", command)};
-            }
-
-            const auto start = pos + 1_uz;
-            const auto end = command.find('"', start);
-            if (end == std::string::npos) {
-                return std::runtime_error{fmt::format("Ill formed /I directive in command {}", command)};
-            }
-
-            auto includePath = command.substr(start, end - start);
-            log("Found include path {}\n", includePath);
-            includePaths.emplace_back(includePath);
-            pos = end + 1_uz;
-        }
-
-        return {};
-    };
-
-
     std::vector<CompileCommand> headerCompileCommands;
 
     auto createCompileCommand = [&headerCompileCommands, &buildDir, sourceCompileCommands] (
@@ -229,7 +357,7 @@ auto findTlogFiles(
             return {};
         }
 
-        const auto correctCasing = getCorrectCasingForPath(filePath);
+        const auto correctCasing = detail::getCorrectCasingForPath(filePath);
         if (!correctCasing) {
             return correctCasing.error();
         }
@@ -274,11 +402,10 @@ auto findTlogFiles(
         log("Finding included headers for {}\n", sourceFile);
 
         std::ifstream inFileStream{sourceFile, std::ios::binary};
-        if (!inFileStream) {
-            return std::runtime_error{fmt::format("Failed to open file {} to create compile commands for included headers", sourceFile)};
+        const auto lines = detail::readFileLines(inFileStream);
+        if (!lines) {
+            return lines.error();
         }
-
-        const auto& command = sourceCompileCommand.command;
 
         struct IncludedFile
         {
@@ -288,7 +415,8 @@ auto findTlogFiles(
 
         std::vector<IncludedFile> includedFiles;
 
-        for (const auto lines = readLines(inFileStream); const auto& line : lines) {
+        // find included files
+        for (const auto& line : *lines) {
             std::string_view l = line;
             for (auto i = 0_uz; i < line.size(); i++) {
                 if (line[i] != ' ' && line[i] != '\t') {
@@ -329,11 +457,14 @@ auto findTlogFiles(
         
         log("Finding include paths for {}\n", sourceFile);
 
-        std::vector<fs::path> includePaths;
-        if (auto err = findIncludePaths("/I", command, includePaths)) {
-            return *err;
+        // find this file's include paths
+        const auto& command = sourceCompileCommand.command;
+        auto includePaths = findIncludePaths(command);
+        if (!includePaths) {
+            return includePaths.error();
         }
 
+        // for each include file, generate a compile command for that file on each include path
         for (const auto& [file, usesQuotes] : includedFiles) {
             // If the file is included using quotes, search in the source file's directory first
             // if it's also found on an include path, it will be ignored if it was found on the
@@ -345,7 +476,7 @@ auto findTlogFiles(
                 }
             }
 
-            for (const auto& includePath : includePaths) {
+            for (const auto& includePath : *includePaths) {
                 if (auto err = createCompileCommand(includePath, file, sourceFile, command)) {
                     return *err;
                 }
@@ -355,112 +486,6 @@ auto findTlogFiles(
 
     return headerCompileCommands;
 }
-
-auto createCompileCommands(
-    const fs::path& buildDir,
-    std::span<const fs::path> tlogFiles,
-    bool skipHeaders
-) -> Result<std::vector<CompileCommand>, std::runtime_error>
-{
-    std::vector<std::string_view> extensions = {
-        ".C", ".CC", ".CPP", ".CXX",
-    };
-
-    std::vector<CompileCommand> compileCommands;
-
-    for (const auto& file : tlogFiles) {
-        log("File: {}\n", file.string());
-
-        std::ifstream inFileStream{file, std::ios::binary};
-        if (!inFileStream) {
-            return std::runtime_error{fmt::format("Failed to open file {}", file.string())};
-        }
-
-        for (const auto lines = readLines(inFileStream); const auto& line : lines) {
-            if (!line.starts_with("/c")) {
-                continue;
-            }
-
-            log("Command: {}\n", line);
-
-            if (std::none_of(extensions.cbegin(), extensions.cend(), [&line] (const std::string_view extension) {
-                return line.ends_with(extension);
-            })) {
-                return std::runtime_error{fmt::format("Command did not end with source file: {}", line)};
-            }
-
-            std::string command{"cl.exe "};
-
-            // go from the end of the command until we find the last occurrence of a Windows drive letter and ':'
-            // that will be the start of the full path to the source file
-            std::string targetFile;
-            for (auto i = line.size() - 2_uz; i > 0_uz; i--) {
-                if (std::isalpha(line[i]) && line[i + 1_uz] == ':') {
-                    const auto fileName = line.substr(i);
-
-                    // paths in the tlog files seem to all be converted to all upper case.
-                    auto correctCasing = getCorrectCasingForPath(fileName);
-                    if (correctCasing) {
-                        targetFile = correctCasing->string();
-                        log("Source File: {}\n", targetFile);
-
-                        auto lineFixedCase = line;
-                        lineFixedCase.replace(i, fileName.size(), targetFile);
-                        command.append(lineFixedCase);
-                        break;
-                    } else {
-                        return correctCasing.error();
-                    }
-                }
-            }
-
-            if (targetFile.empty()) {
-                return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
-            }
-            
-            if (std::none_of(
-                compileCommands.cbegin(),
-                compileCommands.cend(),
-                [&targetFile] (const CompileCommand& compileCommand) {
-                    return compileCommand.file == targetFile;
-                }
-            )) {
-                compileCommands.push_back(CompileCommand{
-                    .directory = buildDir.string(),
-                    .command = std::move(command),
-                    .file = std::move(targetFile),
-                });
-            }
-        }
-    }
-
-    if (!skipHeaders) {
-        std::optional<std::vector<CompileCommand>> additionalCommands;
-
-        while (true) {
-            auto headersCommands = createCompileCommandsForHeaders(
-                buildDir,
-                additionalCommands ? *additionalCommands : compileCommands
-            );
-
-            if (!headersCommands) {
-                return headersCommands.error();
-            }
-
-            additionalCommands = std::move(*headersCommands);
-            if (additionalCommands->empty()) {
-                break;
-            }
-
-            compileCommands.insert(
-                compileCommands.end(),
-                additionalCommands->begin(),
-                additionalCommands->end()
-            );
-        }
-    }
-
-    return compileCommands;
-}
+} // namespace detail
 } // namespace compdbvs
 
