@@ -129,9 +129,12 @@ auto findTlogFiles(
     };
 
     const auto encoding = [] (std::ifstream& file) -> EncodingResult {
-        if (file.get() == 0xFF && file.get() == 0xFE) {
+        const auto first = file.get();
+        const auto second = file.get();
+
+        if (first == 0xFF && second == 0xFE) {
             return EncodingResult::Utf16LittleEndian;
-        } else if (file.get() == 0xFE && file.get() == 0xFF) {
+        } else if (first == 0xFE && second == 0xFF) {
             return EncodingResult::Utf16BigEndian;
         } else {
             file.clear();
