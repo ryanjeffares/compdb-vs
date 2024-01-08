@@ -43,7 +43,7 @@ cmake-build-release-visual-studio/**/*
 **/*.cbp
 **/CMakeScripts
 **/compile_commands.json
-build/**/*
+**/build/**/*
 include/divisible/*
 
 # Local 

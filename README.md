@@ -20,7 +20,7 @@ Then, either install it with `cmake --install build` or add the build directory 
 
 Now, simply run the executable from the root of your project (or from within the same directory as your build folder).
 
-`compdb-vs` will look for the build files and write the compilation database in a directory `build` relative to the current working directory. If your build folder is called something else, specify this with the `--build-dir/-bd` flag.
+`compdb-vs` will look for the build files and write the compilation database in a directory `build` relative to the current working directory. If your build folder is called something else, specify this with the `--build-dir/-b` flag.
 
 ```bash
 C:/my-project> compdb-vs.exe --build-dir MyBuildFolder

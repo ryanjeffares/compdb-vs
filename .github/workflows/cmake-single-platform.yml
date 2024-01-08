@@ -31,6 +31,12 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
+    - name: Build Test Project
+      working-directory: ${{github.workspace}}/tests/test-project-1
+      run: |
+        cmake -B ${{github.workspace}}/tests/test-project-1/build -S .
+        cmake --build ${{github.workspace}}/tests/test-project-1/build
+
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure -V
