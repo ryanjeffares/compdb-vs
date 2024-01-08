@@ -34,10 +34,6 @@
 **/compile_commands.json
 
 # Local 
-.idea/**/*
-.cache/**/*
-include/*
-lib/*
-bin/*
-test/test_runner
+**/.idea/**/*
+**/.cache/**/*
 
