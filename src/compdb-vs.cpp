@@ -20,7 +20,7 @@
  * Generate a compilation database based on Visual Studio build files
 */
 
-#include "compdb-vs.hpp"
+    #include "compdb-vs.hpp"
 
 #include <fstream>
 #include <ranges>
@@ -286,32 +286,40 @@ auto findTlogFiles(
         std::vector<IncludedFile> includedFiles;
 
         for (const auto lines = readLines(inFileStream); const auto& line : lines) {
-            if (!line.starts_with("#include")) {
+            std::string_view l = line;
+            for (auto i = 0_uz; i < line.size(); i++) {
+                if (line[i] != ' ' && line[i] != '\t') {
+                    l = {line.data() + i};
+                    break;
+                }
+            }
+
+            if (l.empty() || !l.starts_with("#include")) {
                 continue;
             }
 
             auto start = 8_uz; // length of "#include"
-            while (start < line.size() && (line[start] == ' ' || line[start] == '\t')) {
+            while (start < l.size() && (l[start] == ' ' || l[start] == '\t')) {
                 start++;
             }
 
-            if (line[start] == '"') {
+            if (l[start] == '"') {
                 start++;
-                const auto end = line.find('"', start);
+                const auto end = l.find('"', start);
 
                 if (end != std::string::npos) {
-                    auto includedFile = line.substr(start, end - start);
+                    auto includedFile = l.substr(start, end - start);
                     log("Found included file \"{}\"\n", includedFile);
-                    includedFiles.emplace_back(IncludedFile{std::move(includedFile), true});
+                    includedFiles.emplace_back(IncludedFile{std::string{includedFile}, true});
                 }
-            } else if (line[start] == '<') {
+            } else if (l[start] == '<') {
                 start++;
-                const auto end = line.find('>', start);
+                const auto end = l.find('>', start);
 
                 if (end != std::string::npos) {
-                    auto includedFile = line.substr(start, end - start);
+                    auto includedFile = l.substr(start, end - start);
                     log("Found included file <{}>\n", includedFile);
-                    includedFiles.emplace_back(IncludedFile{std::move(includedFile), false});
+                    includedFiles.emplace_back(IncludedFile{std::string{includedFile}, false});
                 }
             }
         }
