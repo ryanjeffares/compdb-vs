@@ -28,7 +28,7 @@
 
 #define COMPDB_VS_MAJOR_VERSION 1
 #define COMPDB_VS_MINOR_VERSION 0
-#define COMPDB_VS_PATCH_NUMBER  0
+#define COMPDB_VS_PATCH_NUMBER  1
 
 static auto help() -> void
 {
