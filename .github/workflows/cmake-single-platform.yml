@@ -32,7 +32,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
     - name: Build Test Project
-      working-directory: ${{github.workspace}}/test/test-project-1
+      working-directory: ${{github.workspace}}/tests/test-project-1
       run: |
         cmake -B ${{github.workspace}}/tests/test-project-1/build -S .
         cmake --build ${{github.workspace}}/tests/test-project-1/build
