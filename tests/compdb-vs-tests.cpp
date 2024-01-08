@@ -49,18 +49,25 @@ static auto testResult() -> void
 [[maybe_unused]] static auto testCreateCompileCommands() -> void
 {
     {
-        const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-build-dir-1", "Debug");
+        const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-project-1", "Debug");
         mu_check(tlogFiles);
-        mu_check(tlogFiles->size() == 2_uz);
+        mu_check(tlogFiles->size() == 4_uz);
 
-        const auto compileCommands = createCompileCommands("build", *tlogFiles, true);
-        mu_check(compileCommands);
-        fmt::print("{}\n", compileCommands->size());
-        mu_check(compileCommands->size() == 3_uz);
+        {
+            const auto compileCommands = createCompileCommands("build", *tlogFiles, false);
+            mu_check(compileCommands);
+            mu_check(compileCommands->size() == 6_uz);
+        }
+
+        {
+            const auto compileCommands = createCompileCommands("build", *tlogFiles, true);
+            mu_check(compileCommands);
+            mu_check(compileCommands->size() == 4_uz);
+        }
     }
 
     {
-        const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-build-dir-2", "Debug");
+        const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-project-2", "Debug");
         mu_check(tlogFiles);
         mu_check(tlogFiles->empty());
 
@@ -78,7 +85,7 @@ static auto testResult() -> void
 MU_TEST_SUITE(testSuite)
 {
     MU_RUN_TEST(testResult);
-    // MU_RUN_TEST(testCreateCompileCommands);
+    MU_RUN_TEST(testCreateCompileCommands);
 }
 } // namespace compdbvs_tests
 

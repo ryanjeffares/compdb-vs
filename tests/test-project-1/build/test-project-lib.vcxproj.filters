@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\ryand\Documents\Dev\tools\compdb-vs\tests\test-project-1\src\lib\lib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\ryand\Documents\Dev\tools\compdb-vs\tests\test-project-1\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{E5A7C61C-58DA-3950-8A2E-CA36B248B00D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -4,6 +4,7 @@
 *.lo
 *.o
 *.obj
+*.pdb
 
 # Precompiled Headers
 *.gch
@@ -30,21 +31,7 @@
 *.app
 
 # Build output
-cmake-build-debug/**/*
-cmake-build-release/**/*
-cmake-build-debug-visual-studio/**/*
-cmake-build-release-visual-studio/**/*
-**/CMakeCache.txt
-**/cmake_install.cmake
-**/install_manifest.txt
-**/CMakeFiles/
-**/CTestTestfile.cmake
-**/Makefile
-**/*.cbp
-**/CMakeScripts
 **/compile_commands.json
-build/**/*
-include/divisible/*
 
 # Local 
 .idea/**/*
