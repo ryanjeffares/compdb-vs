@@ -149,12 +149,10 @@ auto findTlogFiles(
 
         using namespace std::literals;
 
-        // TODO: split first with `getline()`, then convert encoding
-        const auto delim = string.find("\r\n"sv) == std::string_view::npos ? "\n"sv : "\r\n"sv;
-        for (const auto split : std::views::split(string, delim) | std::views::transform([] (const auto split) {
-            return std::string_view{split.data(), split.size()};
+        for (const auto split : string | std::views::split('\n') | std::views::transform([] (const auto split) {
+            return std::string_view{split};
         })) {
-            lines.emplace_back(split);
+            lines.emplace_back(split.ends_with('\r') ? split.substr(0_uz, split.size() - 1_uz) : split);
         }
 
         return lines;
