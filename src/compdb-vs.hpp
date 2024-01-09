@@ -54,7 +54,7 @@ struct [[nodiscard]] CompileCommand
 
 [[nodiscard]] auto findTlogFiles(
     const fs::path& buildDir,
-    std::string_view config
+    const std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>;
 
 [[nodiscard]] auto createCompileCommands(
@@ -85,7 +85,7 @@ enum class FileEncoding
 ) -> Result<std::vector<std::string>, std::runtime_error>;
 
 [[nodiscard]] auto findIncludePaths(
-    std::string_view command
+    const std::string_view command
 ) -> Result<std::vector<fs::path>, std::runtime_error>;
 
 [[nodiscard]] auto createCompileCommandsForHeaders(
@@ -100,6 +100,13 @@ inline auto log(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
     if (g_verbose) {
         fmt::print(message, std::forward<Ts>(formatArgs)...);
     }
+}
+
+template<typename... Ts>
+inline auto logInfo(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
+{
+    fmt::print(fmt::emphasis::bold | fmt::fg(fmt::color::green), "INFO: ");
+    fmt::print(message, std::forward<Ts>(formatArgs)...);
 }
 
 template<typename... Ts>

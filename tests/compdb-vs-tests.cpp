@@ -141,7 +141,40 @@ static auto test_readFileLines() -> void
     }
 }
 
-auto test_fullProgramFlow() -> void
+static auto test_findIncludePaths() -> void
+{
+    using namespace std::string_view_literals;
+
+    {
+        auto command = "cl.exe /c /I\"C:\\USERS\\RYAND\\DOCUMENTS\\DEV\\TOOLS\\COMPDB-VS\\BUILD\\_DEPS\\FMT-SRC\\INCLUDE\" /nologo /W1 /WX- /diagnostics:column /O2 /Ob2 /D _MBCS /D WIN32 /D _WINDOWS /D NDEBUG /D \"CMAKE_INTDIR=\\\"Release\\\"\" /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /Fo\"FMT.DIR\\RELEASE\\\\\" /Fd\"C:\\USERS\\RYAND\\DOCUMENTS\\DEV\\TOOLS\\COMPDB-VS\\BUILD\\RELEASE\\FMT.PDB\" /external:W1 /Gd /TP C:\\Users\\ryand\\Documents\\Dev\\tools\\compdb-vs\\build\\_deps\\fmt-src\\src\\os.cc"sv;
+
+        const auto includePaths = detail::findIncludePaths(command);
+        mu_check(includePaths);
+        mu_check(includePaths->size() == 1_uz);
+    }
+
+    {
+        auto command = "cl.exe /c /I \"C:\\USERS\\RYAND\\DOCUMENTS\\DEV\\TOOLS\\COMPDB-VS\\BUILD\\_DEPS\\FMT-SRC\\INCLUDE\" /I \"C:\\USERS\\RYAND\\DOCUMENTS\\DEV\\TOOLS\\COMPDB-VS\\BUILD\\_DEPS\\FMT-SRC\\INCLUDE\" /i\"C:\\USERS\\RYAND\\DOCUMENTS\\DEV\\TOOLS\\COMPDB-VS\\BUILD\\_DEPS\\FMT-SRC\\INCLUDE\" /nologo /W1 /WX- /diagnostics:column /O2 /Ob2 /D _MBCS /D WIN32 /D _WINDOWS /D NDEBUG /D \"CMAKE_INTDIR=\\\"Release\\\"\" /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /Fo\"FMT.DIR\\RELEASE\\\\\" /Fd\"C:\\USERS\\RYAND\\DOCUMENTS\\DEV\\TOOLS\\COMPDB-VS\\BUILD\\RELEASE\\FMT.PDB\" /external:W1 /Gd /TP C:\\Users\\ryand\\Documents\\Dev\\tools\\compdb-vs\\build\\_deps\\fmt-src\\src\\os.cc"sv;
+
+        const auto includePaths = detail::findIncludePaths(command);
+        mu_check(includePaths);
+        mu_check(includePaths->size() == 2_uz);
+    }
+
+    {
+        auto command = "/I \""sv;
+        const auto includePaths = detail::findIncludePaths(command);
+        mu_check(!includePaths);
+    }
+
+    {
+        auto command = "/I    "sv;
+        const auto includePaths = detail::findIncludePaths(command);
+        mu_check(!includePaths);
+    }
+}
+
+static auto test_fullProgramFlow() -> void
 {
     {
         const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-project-1", "Debug");
@@ -183,6 +216,7 @@ MU_TEST_SUITE(testSuite)
     MU_RUN_TEST(test_getCorrectCasingForPath);
     MU_RUN_TEST(test_getFileEncoding);
     MU_RUN_TEST(test_readFileLines);
+    MU_RUN_TEST(test_findIncludePaths);
     MU_RUN_TEST(test_fullProgramFlow);
 }
 } // namespace compdbvs_tests

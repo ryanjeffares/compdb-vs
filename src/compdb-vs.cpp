@@ -30,7 +30,7 @@ bool g_verbose = false;
 
 auto findTlogFiles(
     const fs::path& buildDir,
-    std::string_view config
+    const std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>
 {
     std::vector<fs::path> tlogFiles;
@@ -303,7 +303,7 @@ namespace detail {
 }
 
 [[nodiscard]] auto findIncludePaths(
-    std::string_view command
+    const std::string_view command
 ) -> Result<std::vector<fs::path>, std::runtime_error>
 {
     std::vector<fs::path> includePaths;
@@ -317,13 +317,13 @@ namespace detail {
         }
 
         if (pos >= command.size() && command[pos] != '"') {
-            return std::runtime_error{fmt::format("Ill formed /I directive in command {}", command)};
+            return std::runtime_error{fmt::format("Ill formed /I directive in command {}: no path given", command)};
         }
 
         const auto start = pos + 1_uz;
         const auto end = command.find('"', start);
         if (end == std::string::npos) {
-            return std::runtime_error{fmt::format("Ill formed /I directive in command {}", command)};
+            return std::runtime_error{fmt::format("Ill formed /I directive in command {}: unterminated \"", command)};
         }
 
         auto includePath = command.substr(start, end - start);
