@@ -24,11 +24,12 @@
 
 #include <nlohmann/json.hpp>
 
+#include <chrono>
 #include <fstream>
 
 #define COMPDB_VS_MAJOR_VERSION 1
 #define COMPDB_VS_MINOR_VERSION 0
-#define COMPDB_VS_PATCH_NUMBER  0
+#define COMPDB_VS_PATCH_NUMBER  1
 
 static auto help() -> void
 {
@@ -48,6 +49,8 @@ static auto help() -> void
 auto main(int argc, const char* argv[]) -> int
 {
     namespace fs = std::filesystem;
+
+    const auto start = std::chrono::steady_clock::now();
 
     std::string config = "Debug";
     std::string buildDir = "build";
@@ -84,6 +87,8 @@ auto main(int argc, const char* argv[]) -> int
         }
     }
     
+    compdbvs::logInfo("Finding .tlog files\n");
+
     const auto fullBuildDir = fs::current_path() / buildDir;
 
     const auto tlogFiles = compdbvs::findTlogFiles(fullBuildDir, config);
@@ -92,7 +97,7 @@ auto main(int argc, const char* argv[]) -> int
         return 1;
     }
 
-    compdbvs::log("\n");
+    compdbvs::logInfo("Creating compile_commands.json\n");
 
     const auto compileCommands = compdbvs::createCompileCommands(fullBuildDir, *tlogFiles, skipHeaders);
     if (!compileCommands) {
@@ -100,12 +105,10 @@ auto main(int argc, const char* argv[]) -> int
         return 1;
     }
 
-    compdbvs::log("\n");
-
     using namespace nlohmann;
     auto outputJson = json::array();
 
-    compdbvs::log("Writing compile_commands.json...\n");
+    compdbvs::logInfo("Writing compile_commands.json\n");
 
     for (const auto& command : *compileCommands) {
 #ifdef COMPDBVS_DEBUG
@@ -131,5 +134,9 @@ auto main(int argc, const char* argv[]) -> int
         compdbvs::logError("Failed to write compile_commands.json\n");
         return 1;
     }
+
+    const auto end = std::chrono::steady_clock::now();
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    compdbvs::logInfo("Finished in {} ms\n", duration);
 }
 
