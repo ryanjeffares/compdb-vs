@@ -246,8 +246,8 @@ namespace detail {
 
 [[nodiscard]] auto getFileEncoding(std::istream& stream) -> FileEncoding
 {
-    const auto first = stream.get();
-    const auto second = stream.get();
+    const auto first = static_cast<unsigned char>(stream.get());
+    const auto second = static_cast<unsigned char>(stream.get());
 
     if (first == 0xFF && second == 0xFE) {
         return FileEncoding::Utf16LittleEndian;

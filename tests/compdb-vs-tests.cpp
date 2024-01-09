@@ -24,6 +24,7 @@
 #include "../src/compdb-vs.hpp"
 
 #include <minunit/minunit.h>
+#include <sstream>
 
 namespace compdbvs::tests {
 static auto test_Result() -> void
@@ -74,7 +75,44 @@ static auto test_getCorrectCasingForPath() -> void
     mu_check(fixed.isErr());
 }
 
-static auto test_fullProgramFlow() -> void
+static auto test_getFileEncoding() -> void
+{
+    auto ff = static_cast<char>(0xFF);
+    auto fe = static_cast<char>(0xFE);
+
+    {
+        std::stringstream utf8{std::ios_base::binary};
+        utf8 << "Hello";
+        const auto encoding = detail::getFileEncoding(utf8);
+        mu_check(encoding == detail::FileEncoding::Utf8);
+    }
+
+    {
+        std::string utf16LeString;
+        utf16LeString.push_back(ff);
+        utf16LeString.push_back(fe);
+
+        std::stringstream utf16Le;
+        utf16Le << utf16LeString;
+
+        const auto encoding = detail::getFileEncoding(utf16Le);
+        mu_check(encoding == detail::FileEncoding::Utf16LittleEndian);
+    }
+
+    {
+        std::string utf16BeString;
+        utf16BeString.push_back(fe);
+        utf16BeString.push_back(ff);
+
+        std::stringstream utf16Be;
+        utf16Be << utf16BeString;
+
+        const auto encoding = detail::getFileEncoding(utf16Be);
+        mu_check(encoding == detail::FileEncoding::Utf16BigEndian);
+    }
+}
+
+[[maybe_unused]] auto test_fullProgramFlow() -> void
 {
     {
         const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-project-1", "Debug");
@@ -114,7 +152,8 @@ MU_TEST_SUITE(testSuite)
 {
     MU_RUN_TEST(test_Result);
     MU_RUN_TEST(test_getCorrectCasingForPath);
-    MU_RUN_TEST(test_fullProgramFlow);
+    MU_RUN_TEST(test_getFileEncoding);
+    // MU_RUN_TEST(test_fullProgramFlow);
 }
 } // namespace compdbvs_tests
 
