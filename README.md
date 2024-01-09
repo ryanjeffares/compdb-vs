@@ -49,6 +49,13 @@ If any of the above conventions change by the hands of Microsoft or LLVM, this w
 * It _seems_ like `clangd` will ignore an argument it doesn't recognise, but there might be some Visual Studio argument that will break it.
 * When adding entries for header files, if two source files include the same header file but with _different_ compile options, only the first one that `compdb-vs` finds will be used.
 
-## TODO
-* Better testing.
+## Testing
+After building the project, you can run the tests from the build folder using `CTest`. The tests depend on `test-project-1` in the tests folder, so build that first.
 
+```bash
+compdb-vs>cd tests/test-project-1
+compdb-vs\tests\test-project-1>cmake -B build -S .
+compdb-vs\tests\test-project-1>cmake --buid build
+compdb-vs\tests\test-project-1>cd ../../build
+compdb-vs\build>ctest -C Release
+```
