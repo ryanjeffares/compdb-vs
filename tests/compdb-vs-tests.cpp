@@ -24,6 +24,7 @@
 #include "../src/compdb-vs.hpp"
 
 #include <minunit/minunit.h>
+#include <fstream>
 #include <sstream>
 
 namespace compdbvs::tests {
@@ -112,7 +113,35 @@ static auto test_getFileEncoding() -> void
     }
 }
 
-[[maybe_unused]] auto test_fullProgramFlow() -> void
+static auto test_readFileLines() -> void
+{
+    {
+        const auto filePath = fs::current_path().parent_path() / "tests" / "test-project-1" / "CMakeLists.txt";
+        std::ifstream fileStream{filePath};
+        const auto lines = detail::readFileLines(fileStream);
+        mu_check(lines);
+        mu_check(lines->size() == 15_uz);
+    }
+
+    {
+        std::stringstream stream;
+        stream << "Hello\n";
+        stream << "World\n";
+        stream << "!";
+        const auto lines = detail::readFileLines(stream);
+        mu_check(lines);
+        mu_check(lines->size() == 3_uz);
+    }
+
+    {
+        const auto filePath = "C:/Foo";
+        std::ifstream fileStream{filePath};
+        const auto lines = detail::readFileLines(fileStream);
+        mu_check(!lines);
+    }
+}
+
+auto test_fullProgramFlow() -> void
 {
     {
         const auto tlogFiles = findTlogFiles(fs::current_path().parent_path() / "tests" / "test-project-1", "Debug");
@@ -153,7 +182,8 @@ MU_TEST_SUITE(testSuite)
     MU_RUN_TEST(test_Result);
     MU_RUN_TEST(test_getCorrectCasingForPath);
     MU_RUN_TEST(test_getFileEncoding);
-    // MU_RUN_TEST(test_fullProgramFlow);
+    MU_RUN_TEST(test_readFileLines);
+    MU_RUN_TEST(test_fullProgramFlow);
 }
 } // namespace compdbvs_tests
 
