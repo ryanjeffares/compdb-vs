@@ -317,7 +317,7 @@ namespace detail {
             pos++;
         }
 
-        if (pos >= command.size() && command[pos] != '"') {
+        if (pos >= command.size() || command[pos] != '"') {
             return std::runtime_error{fmt::format("Ill formed /I directive in command {}: no path given", command)};
         }
 
