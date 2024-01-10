@@ -155,7 +155,8 @@ auto createCompileCommands(
         while (true) {
             auto headersCommands = detail::createCompileCommandsForHeaders(
                 buildDir,
-                additionalCommands ? *additionalCommands : compileCommands
+                additionalCommands ? *additionalCommands : compileCommands,
+                compileCommands
             );
 
             if (!headersCommands) {
@@ -337,12 +338,13 @@ namespace detail {
 
 [[nodiscard]] auto createCompileCommandsForHeaders(
     const fs::path& buildDir,
-    std::span<const CompileCommand> sourceCompileCommands
+    std::span<const CompileCommand> compileCommandsToCheck,
+    std::span<const CompileCommand> allCompileCommands
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>
 {
     std::vector<CompileCommand> headerCompileCommands;
 
-    auto createCompileCommand = [&headerCompileCommands, &buildDir, sourceCompileCommands] (
+    auto createCompileCommand = [&] (
         const fs::path& includePath,
         std::string_view includedFile,
         std::string_view sourceFile,
@@ -364,10 +366,10 @@ namespace detail {
 
         auto headerPath = correctCasing->string();
 
-        // need to check for duplicates in the source and new commands
+        // need to check for duplicates
         if (std::any_of(
-            sourceCompileCommands.begin(),
-            sourceCompileCommands.end(),
+            allCompileCommands.begin(),
+            allCompileCommands.end(),
             [&headerPath] (const CompileCommand& compileCommand) {
                 return compileCommand.file == headerPath;
             }
@@ -397,7 +399,7 @@ namespace detail {
         return {};
     };
 
-    for (const auto& sourceCompileCommand : sourceCompileCommands) {
+    for (const auto& sourceCompileCommand : compileCommandsToCheck) {
         const auto& sourceFile = sourceCompileCommand.file;
         log("Finding included headers for {}\n", sourceFile);
 

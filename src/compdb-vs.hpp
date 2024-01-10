@@ -90,7 +90,8 @@ enum class FileEncoding
 
 [[nodiscard]] auto createCompileCommandsForHeaders(
     const fs::path& buildDir,
-    std::span<const CompileCommand> sourceCompileCommands
+    std::span<const CompileCommand> compileCommandsToCheck,
+    std::span<const CompileCommand> allCompileCommands
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>;
 } // namespace detail
 
