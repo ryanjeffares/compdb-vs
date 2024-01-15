@@ -30,7 +30,7 @@ bool g_verbose = false;
 
 auto findTlogFiles(
     const fs::path& buildDir,
-    const std::string_view config
+    std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>
 {
     std::vector<fs::path> tlogFiles;
@@ -41,9 +41,7 @@ auto findTlogFiles(
 
     try {
         for (const auto& entry : fs::directory_iterator{buildDir}) {
-            const auto& path = entry.path();
-
-            if (fs::is_directory(path)) {
+            if (const auto &path = entry.path(); fs::is_directory(path)) {
                 log("Looking in {}...\n", path.string());
                 auto innerFiles = findTlogFiles(path, config);
                 if (!innerFiles) {
@@ -56,11 +54,11 @@ auto findTlogFiles(
                     std::make_move_iterator(innerFiles->end())
                 );
             } else {
-                const auto parent = path.parent_path().parent_path();
-                if (parent.filename() == config && path.filename() == "CL.command.1.tlog") {
-                    log("Found file {}\n", path.string());
-                    tlogFiles.push_back(path);
-                }
+              if (const auto parent = path.parent_path().parent_path();
+                  parent.filename() == config && path.filename() == "CL.command.1.tlog") {
+                  log("Found file {}\n", path.string());
+                  tlogFiles.push_back(path);
+              }
             }
         }
     } catch (const fs::filesystem_error& e) {
@@ -98,7 +96,7 @@ auto createCompileCommands(
 
             log("Command: {}\n", line);
 
-            if (std::none_of(extensions.cbegin(), extensions.cend(), [&line] (const std::string_view extension) {
+            if (std::ranges::none_of(extensions, [&line] (const auto extension) {
                 return line.ends_with(extension);
             })) {
                 return std::runtime_error{fmt::format("Command did not end with source file: {}", line)};
@@ -114,8 +112,7 @@ auto createCompileCommands(
                     const auto fileName = line.substr(i);
 
                     // paths in the tlog files seem to all be converted to all upper case.
-                    auto correctCasing = detail::getCorrectCasingForPath(fileName);
-                    if (correctCasing) {
+                    if (auto correctCasing = detail::getCorrectCasingForPath(fileName)) {
                         targetFile = correctCasing->string();
                         log("Source File: {}\n", targetFile);
 
@@ -133,13 +130,9 @@ auto createCompileCommands(
                 return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
             }
             
-            if (std::none_of(
-                compileCommands.cbegin(),
-                compileCommands.cend(),
-                [&targetFile] (const CompileCommand& compileCommand) {
-                    return compileCommand.file == targetFile;
-                }
-            )) {
+            if (std::ranges::none_of(compileCommands, [&targetFile] (const auto& compileCommand) -> bool {
+                return compileCommand.file == targetFile;
+            })) {
                 compileCommands.push_back(CompileCommand{
                     .directory = buildDir.string(),
                     .command = std::move(command),
@@ -199,18 +192,18 @@ namespace detail {
             return false;
         }
         
-        it++;
+        ++it;
 
         // skip the root directory
         if (path.has_root_directory() && it != path.end()) {
-            it++;
+            ++it;
         }
 
         return it == path.end();
     };
 
     // why does std::string not have functions to change case?
-    auto toLower = [] (std::string_view string) -> std::string {
+    auto toLower = [] (const std::string_view string) -> std::string {
         std::string res;
         for (const auto c : string) {
             res.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
@@ -231,8 +224,7 @@ namespace detail {
         // need to compare the actual text but ignore case because for some reason 
         // fs::equivalent returns true for 'C:/Users/' and 'C:/Documents and Settings/'
         if (toLower(entry.path().filename().string()) == toLower(filePath.filename().string())) {
-            const auto res = getCorrectCasingForPath(parent);
-            if (res) {
+            if (const auto res = getCorrectCasingForPath(parent)) {
                 return *res / entry.path().filename();
             } else {
                 return res.error();
@@ -285,8 +277,8 @@ namespace detail {
 
         using namespace std::literals;
 
-        for (const auto split : string | std::views::split('\n') | std::views::transform([] (const auto split) {
-            return std::string_view{split};
+        for (const auto split : string | std::views::split('\n') | std::views::transform([] (const auto s) {
+            return std::string_view{s};
         })) {
             lines.emplace_back(split.ends_with('\r') ? split.substr(0_uz, split.size() - 1_uz) : split);
         }
@@ -308,7 +300,7 @@ namespace detail {
 }
 
 [[nodiscard]] auto findIncludePaths(
-    const std::string_view command
+    std::string_view command
 ) -> Result<std::vector<fs::path>, std::runtime_error>
 {
     std::vector<fs::path> includePaths;
@@ -371,19 +363,11 @@ namespace detail {
         auto headerPath = correctCasing->string();
 
         // need to check for duplicates
-        if (std::any_of(
-            allCompileCommands.begin(),
-            allCompileCommands.end(),
-            [&headerPath] (const CompileCommand& compileCommand) {
-                return compileCommand.file == headerPath;
-            }
-        ) || std::any_of(
-            headerCompileCommands.cbegin(),
-            headerCompileCommands.cend(),
-            [&headerPath] (const CompileCommand& compileCommand) {
-                return compileCommand.file == headerPath;
-            }
-        )) {
+        if (std::ranges::any_of(allCompileCommands, [&headerPath] (const auto& compileCommand) -> bool {
+            return compileCommand.file == headerPath;
+        }) || std::ranges::any_of(headerCompileCommands, [&headerPath] (const auto& compileCommand) -> bool {
+            return compileCommand.file == headerPath;
+        })) {
             log("Ignoring {} because it has already had an entry in the database created for it\n", headerPath);
             return {};
         }
@@ -403,8 +387,8 @@ namespace detail {
         return {};
     };
 
-    for (const auto& sourceCompileCommand : compileCommandsToCheck) {
-        const auto& sourceFile = sourceCompileCommand.file;
+    for (const auto& [directory, command, file] : compileCommandsToCheck) {
+        const auto& sourceFile = file;
         const auto isObjC = sourceFile.ends_with("m");
 
         log("Finding included headers for {}\n", sourceFile);
@@ -444,48 +428,43 @@ namespace detail {
 
             if (l[start] == '"') {
                 start++;
-                const auto end = l.find('"', start);
-
-                if (end != std::string::npos) {
+                if (const auto end = l.find('"', start); end != std::string::npos) {
                     auto includedFile = l.substr(start, end - start);
                     log("Found included file \"{}\"\n", includedFile);
                     includedFiles.emplace_back(IncludedFile{std::string{includedFile}, true});
                 }
             } else if (l[start] == '<') {
                 start++;
-                const auto end = l.find('>', start);
-
-                if (end != std::string::npos) {
+                if (const auto end = l.find('>', start); end != std::string::npos) {
                     auto includedFile = l.substr(start, end - start);
                     log("Found included file <{}>\n", includedFile);
                     includedFiles.emplace_back(IncludedFile{std::string{includedFile}, false});
                 }
             }
         }
-        
+
         log("Finding include paths for {}\n", sourceFile);
 
         // find this file's include paths
-        const auto& command = sourceCompileCommand.command;
         auto includePaths = findIncludePaths(command);
         if (!includePaths) {
             return includePaths.error();
         }
 
         // for each include file, generate a compile command for that file on each include path
-        for (const auto& [file, usesQuotes] : includedFiles) {
+        for (const auto& [fileName, usesQuotes] : includedFiles) {
             // If the file is included using quotes, search in the source file's directory first
             // if it's also found on an include path, it will be ignored if it was found on the
             // source file's relative path first. This mirrors how the preprocessor works.
             if (usesQuotes) {
                 const auto relativePath = fs::path{sourceFile}.parent_path();
-                if (auto err = createCompileCommand(relativePath, file, sourceFile, command)) {
+                if (auto err = createCompileCommand(relativePath, fileName, sourceFile, command)) {
                     return *err;
                 }
             }
 
             for (const auto& includePath : *includePaths) {
-                if (auto err = createCompileCommand(includePath, file, sourceFile, command)) {
+                if (auto err = createCompileCommand(includePath, fileName, sourceFile, command)) {
                     return *err;
                 }
             }

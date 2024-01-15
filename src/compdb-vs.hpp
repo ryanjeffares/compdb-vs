@@ -54,7 +54,7 @@ struct [[nodiscard]] CompileCommand
 
 [[nodiscard]] auto findTlogFiles(
     const fs::path& buildDir,
-    const std::string_view config
+    std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>;
 
 [[nodiscard]] auto createCompileCommands(
@@ -64,9 +64,7 @@ struct [[nodiscard]] CompileCommand
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>;
 
 namespace detail {
-[[nodiscard]] auto getCorrectCasingForPath(
-    const fs::path& path
-) -> Result<fs::path, std::runtime_error>;
+[[nodiscard]] auto getCorrectCasingForPath(const fs::path& filePath) -> Result<fs::path, std::runtime_error>;
 
 // slightly naive not to include other encodings,
 // but like realistically what else would there be
@@ -79,14 +77,8 @@ enum class FileEncoding
 };
 
 [[nodiscard]] auto getFileEncoding(std::istream& stream) -> FileEncoding;
-
-[[nodiscard]] auto readFileLines(
-    std::istream& stream
-) -> Result<std::vector<std::string>, std::runtime_error>;
-
-[[nodiscard]] auto findIncludePaths(
-    const std::string_view command
-) -> Result<std::vector<fs::path>, std::runtime_error>;
+[[nodiscard]] auto readFileLines(std::istream& stream) -> Result<std::vector<std::string>, std::runtime_error>;
+[[nodiscard]] auto findIncludePaths(std::string_view command) -> Result<std::vector<fs::path>, std::runtime_error>;
 
 [[nodiscard]] auto createCompileCommandsForHeaders(
     const fs::path& buildDir,
@@ -118,5 +110,4 @@ inline auto logError(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> v
 }
 } // namespace compdbvs
 
-#endif // #ifndef COMPDBVS_HPP
-
+#endif // #ifndef COMPDB_VS_HPP
