@@ -77,7 +77,7 @@ auto createCompileCommands(
 ) -> Result<std::vector<CompileCommand>, std::runtime_error>
 {
     std::vector<std::string_view> extensions = {
-        ".C", ".CC", ".CPP", ".CXX",
+        ".C", ".CC", ".CPP", ".CXX", ".M", ".MM"
     };
 
     std::vector<CompileCommand> compileCommands;
@@ -401,6 +401,8 @@ namespace detail {
 
     for (const auto& sourceCompileCommand : compileCommandsToCheck) {
         const auto& sourceFile = sourceCompileCommand.file;
+        const auto isObjC = sourceFile.ends_with("m");
+
         log("Finding included headers for {}\n", sourceFile);
 
         std::ifstream inFileStream{sourceFile, std::ios::binary};
@@ -427,11 +429,11 @@ namespace detail {
                 }
             }
 
-            if (l.empty() || !l.starts_with("#include")) {
+            if (l.empty() || !l.starts_with("#include") || (isObjC && !l.starts_with("#import"))) {
                 continue;
             }
 
-            auto start = 8_uz; // length of "#include"
+            auto start = l.starts_with("#include") ? 8_uz : 7_uz; // length of "#include" / "#import"
             while (start < l.size() && (l[start] == ' ' || l[start] == '\t')) {
                 start++;
             }
