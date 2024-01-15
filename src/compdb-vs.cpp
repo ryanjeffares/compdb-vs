@@ -218,6 +218,10 @@ namespace detail {
         return res;
     };
 
+    if (!fs::exists(filePath)) {
+        return std::runtime_error{fmt::format("{} did not exist", filePath.string())};
+    }
+
     if (isDriveRoot(filePath) || !filePath.has_parent_path()) {
         return filePath;
     }
