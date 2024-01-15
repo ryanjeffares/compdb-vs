@@ -110,19 +110,19 @@ auto main(int argc, const char* argv[]) -> int
 
     compdbvs::logInfo("Writing compile_commands.json\n");
 
-    for (const auto& command : *compileCommands) {
+    for (const auto& [directory, command, file] : *compileCommands) {
 #ifdef COMPDBVS_DEBUG
         compdbvs::log("Command:\n");
-        compdbvs::log("directory: {}\n", command.directory);
-        compdbvs::log("command: {}\n", command.command);
-        compdbvs::log("file: {}\n", command.file);
+        compdbvs::log("directory: {}\n", directory);
+        compdbvs::log("command: {}\n", command);
+        compdbvs::log("file: {}\n", file);
         compdbvs::log("\n");
 #endif
 
         outputJson.push_back({
-            {"directory", command.directory},
-            {"command", command.command},
-            {"file", command.file},
+            {"directory", directory},
+            {"command", command},
+            {"file", file},
         });
     }
 
