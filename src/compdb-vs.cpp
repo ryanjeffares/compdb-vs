@@ -140,8 +140,9 @@ auto createCompileCommands(
     }
 
     if (!skipHeaders) {
-        std::optional<std::vector<CompileCommand>> additionalCommands;
+        logInfo("Sarching for header files\n");
 
+        std::optional<std::vector<CompileCommand>> additionalCommands;
         while (true) {
             auto headersCommands = detail::createCompileCommandsForHeaders(
                 buildDir,
