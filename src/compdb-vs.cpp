@@ -310,21 +310,25 @@ namespace detail {
     while ((pos = command.find("/I", pos)) != std::string::npos) {
         pos += 2_uz;
 
-        while (pos < command.size() && (command[pos] == ' ' || command[pos] == '\t')) {
+        while (pos < command.size() && std::isspace(command[pos])) {
             pos++;
         }
 
-        if (pos >= command.size() || command[pos] != '"') {
+        if (pos == command.size()) {
             return std::runtime_error{fmt::format("Ill formed /I directive in command {}: no path given", command)};
         }
 
-        const auto start = pos + 1_uz;
-        const auto end = command.find('"', start);
-        if (end == std::string::npos) {
+        const auto usesQuotes = command[pos] == '"';
+        const auto start = usesQuotes ? pos + 1_uz : pos;
+        const auto end = command.find(usesQuotes ? '"' : ' ', start);
+        
+        // if we're not using quotes but end is npos, ie there's nothing after the include path,
+        // that's ok because the substr call after will just use the size of the string
+        if (usesQuotes && end == std::string::npos) {
             return std::runtime_error{fmt::format("Ill formed /I directive in command {}: unterminated \"", command)};
         }
 
-        auto includePath = command.substr(start, end - start);
+        auto includePath = command.substr(start, end == std::string::npos ? command.size() : end - start);
         log("Found include path {}\n", includePath);
         includePaths.emplace_back(includePath);
         pos = end + 1_uz;
