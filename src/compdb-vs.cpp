@@ -211,7 +211,7 @@ namespace detail {
         return res;
     };
 
-    if (!fs::exists(filePath)) {
+    if (!fs::is_directory(filePath)) {
         return std::runtime_error{fmt::format("{} did not exist", filePath.string())};
     }
 
