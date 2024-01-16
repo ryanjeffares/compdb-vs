@@ -119,32 +119,30 @@ auto createCompileCommands(
                         auto lineFixedCase = line;
                         lineFixedCase.replace(i, fileName.size(), targetFile);
                         command.append(lineFixedCase);
-                        break;
-                    } else {
-                        return correctCasing.error();
-                    }
-                }
-            }
 
-            if (targetFile.empty()) {
-                return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
-            }
-            
-            if (std::ranges::none_of(compileCommands, [&targetFile] (const auto& compileCommand) -> bool {
-                return compileCommand.file == targetFile;
-            })) {
-                compileCommands.push_back(CompileCommand{
-                    .directory = buildDir.string(),
-                    .command = std::move(command),
-                    .file = std::move(targetFile),
-                });
+                        if (std::ranges::none_of(compileCommands, [&targetFile] (const auto& compileCommand) -> bool {
+                            return compileCommand.file == targetFile;
+                        })) {
+                            compileCommands.push_back(CompileCommand{
+                                .directory = buildDir.string(),
+                                .command = std::move(command),
+                                .file = std::move(targetFile),
+                            });
+                        }
+                    } else {
+                        logWarning("Failed to find source file \"{}\" in command \"{}\": \"{}\"\n", fileName, line, correctCasing.error().what());
+                    }
+
+                    break;
+                }
             }
         }
     }
 
     if (!skipHeaders) {
-        std::optional<std::vector<CompileCommand>> additionalCommands;
+        logInfo("Sarching for header files\n");
 
+        std::optional<std::vector<CompileCommand>> additionalCommands;
         while (true) {
             auto headersCommands = detail::createCompileCommandsForHeaders(
                 buildDir,
@@ -220,6 +218,10 @@ namespace detail {
     }
 
     const auto parent = filePath.parent_path();
+    if (!fs::is_directory(parent)) {
+        return std::runtime_error{fmt::format("Directory {} did not exist", parent.string())};
+    }
+
     for (const auto& entry : fs::directory_iterator{parent}) {
         // need to compare the actual text but ignore case because for some reason 
         // fs::equivalent returns true for 'C:/Users/' and 'C:/Documents and Settings/'
@@ -309,21 +311,25 @@ namespace detail {
     while ((pos = command.find("/I", pos)) != std::string::npos) {
         pos += 2_uz;
 
-        while (pos < command.size() && (command[pos] == ' ' || command[pos] == '\t')) {
+        while (pos < command.size() && std::isspace(command[pos])) {
             pos++;
         }
 
-        if (pos >= command.size() || command[pos] != '"') {
+        if (pos == command.size()) {
             return std::runtime_error{fmt::format("Ill formed /I directive in command {}: no path given", command)};
         }
 
-        const auto start = pos + 1_uz;
-        const auto end = command.find('"', start);
-        if (end == std::string::npos) {
+        const auto usesQuotes = command[pos] == '"';
+        const auto start = usesQuotes ? pos + 1_uz : pos;
+        const auto end = command.find(usesQuotes ? '"' : ' ', start);
+        
+        // if we're not using quotes but end is npos, ie there's nothing after the include path,
+        // that's ok because the substr call after will just use the size of the string
+        if (usesQuotes && end == std::string::npos) {
             return std::runtime_error{fmt::format("Ill formed /I directive in command {}: unterminated \"", command)};
         }
 
-        auto includePath = command.substr(start, end - start);
+        auto includePath = command.substr(start, end == std::string::npos ? command.size() : end - start);
         log("Found include path {}\n", includePath);
         includePaths.emplace_back(includePath);
         pos = end + 1_uz;
