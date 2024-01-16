@@ -211,7 +211,7 @@ namespace detail {
         return res;
     };
 
-    if (!fs::is_directory(filePath)) {
+    if (!fs::exists(filePath)) {
         return std::runtime_error{fmt::format("{} did not exist", filePath.string())};
     }
 
@@ -220,6 +220,10 @@ namespace detail {
     }
 
     const auto parent = filePath.parent_path();
+    if (!fs::is_directory(parent)) {
+        return std::runtime_error{fmt::format("Directory {} did not exist", parent.string())};
+    }
+
     for (const auto& entry : fs::directory_iterator{parent}) {
         // need to compare the actual text but ignore case because for some reason 
         // fs::equivalent returns true for 'C:/Users/' and 'C:/Documents and Settings/'

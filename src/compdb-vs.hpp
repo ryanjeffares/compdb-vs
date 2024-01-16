@@ -103,6 +103,13 @@ inline auto logInfo(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> vo
 }
 
 template<typename... Ts>
+inline auto logWarnings(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
+{
+    fmt::print(fmt::emphasis::bold | fmt::fg(fmt::color::yellow), "WARNING: ");
+    fmt::print(message, std::forward<Ts>(formatArgs)...);
+}
+
+template<typename... Ts>
 inline auto logError(fmt::format_string<Ts...> message, Ts&&... formatArgs) -> void
 {
     fmt::print(stderr, fmt::emphasis::bold | fmt::fg(fmt::color::red), "ERROR: ");
