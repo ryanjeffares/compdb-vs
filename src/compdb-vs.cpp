@@ -119,25 +119,22 @@ auto createCompileCommands(
                         auto lineFixedCase = line;
                         lineFixedCase.replace(i, fileName.size(), targetFile);
                         command.append(lineFixedCase);
-                        break;
-                    } else {
-                        return correctCasing.error();
-                    }
-                }
-            }
 
-            if (targetFile.empty()) {
-                return std::runtime_error{fmt::format("Couldn't find source file in command: {}\n", line)};
-            }
-            
-            if (std::ranges::none_of(compileCommands, [&targetFile] (const auto& compileCommand) -> bool {
-                return compileCommand.file == targetFile;
-            })) {
-                compileCommands.push_back(CompileCommand{
-                    .directory = buildDir.string(),
-                    .command = std::move(command),
-                    .file = std::move(targetFile),
-                });
+                        if (std::ranges::none_of(compileCommands, [&targetFile] (const auto& compileCommand) -> bool {
+                            return compileCommand.file == targetFile;
+                        })) {
+                            compileCommands.push_back(CompileCommand{
+                                .directory = buildDir.string(),
+                                .command = std::move(command),
+                                .file = std::move(targetFile),
+                            });
+                        }
+                    } else {
+                        logWarning("Failed to find source file \"{}\" in command \"{}\": \"{}\"\n", fileName, line, correctCasing.error().what());
+                    }
+
+                    break;
+                }
             }
         }
     }
