@@ -33,6 +33,10 @@ auto findTlogFiles(
     std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>
 {
+    if (!fs::is_directory(buildDir)) {
+        return std::runtime_error{fmt::format("{} is not a directory", buildDir.string())};
+    }
+
     // recursing can cause a stack overflow for very large projects
     // so do a loop advancing one level through the file tree at a time
     try {
