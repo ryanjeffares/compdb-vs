@@ -33,39 +33,60 @@ auto findTlogFiles(
     std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>
 {
-    std::vector<fs::path> tlogFiles;
-
-    if (!fs::is_directory(buildDir)) {
-        return std::runtime_error{fmt::format("Couldn't open build directory {}", buildDir.string())};
-    }
-
     try {
-        for (const auto& entry : fs::directory_iterator{buildDir}) {
-            if (const auto &path = entry.path(); fs::is_directory(path)) {
-                log("Looking in {}...\n", path.string());
-                auto innerFiles = findTlogFiles(path, config);
-                if (!innerFiles) {
-                    return innerFiles.error();
-                }
+        std::vector<fs::path> tlogFiles;
+        std::vector<fs::path> dirsToCheck{buildDir};
 
-                tlogFiles.insert(
-                    tlogFiles.end(),
-                    std::make_move_iterator(innerFiles->begin()),
-                    std::make_move_iterator(innerFiles->end())
-                );
-            } else {
-              if (const auto parent = path.parent_path().parent_path();
-                  parent.filename() == config && path.filename() == "CL.command.1.tlog") {
-                  log("Found file {}\n", path.string());
-                  tlogFiles.push_back(path);
-              }
+        while (!dirsToCheck.empty()) {
+            std::vector<fs::path> innerDirs;
+
+            for (const auto& dir : dirsToCheck) {
+                for (const auto& entry : fs::directory_iterator{dir}) {
+                    const auto& path = entry.path();
+                    if (fs::is_directory(path)) {
+                        innerDirs.push_back(path);
+                    } else {
+                        const auto parent = path.parent_path().parent_path();
+                        if (parent.filename() == config && path.filename() == "CL.command.1.tlog") {
+                            tlogFiles.push_back(path);
+                        }
+                    }
+                }
             }
+
+            dirsToCheck.swap(innerDirs);
         }
+
+        return tlogFiles;
     } catch (const fs::filesystem_error& e) {
-        return std::runtime_error{fmt::format("Failed to iterator through directory {}: {}", buildDir.string(), e.what())};
+        return e;
     }
 
-    return tlogFiles;
+//    try {
+//        for (const auto& entry : fs::directory_iterator{buildDir}) {
+//            if (const auto &path = entry.path(); fs::is_directory(path)) {
+//                log("Looking in {}...\n", path.string());
+//                auto innerFiles = findTlogFiles(path, config);
+//                if (!innerFiles) {
+//                    return innerFiles.error();
+//                }
+//
+//                tlogFiles.insert(
+//                    tlogFiles.end(),
+//                    std::make_move_iterator(innerFiles->begin()),
+//                    std::make_move_iterator(innerFiles->end())
+//                );
+//            } else {
+//              if (const auto parent = path.parent_path().parent_path();
+//                  parent.filename() == config && path.filename() == "CL.command.1.tlog") {
+//                  log("Found file {}\n", path.string());
+//                  tlogFiles.push_back(path);
+//              }
+//            }
+//        }
+//    } catch (const fs::filesystem_error& e) {
+//        return std::runtime_error{fmt::format("Failed to iterator through directory {}: {}", buildDir.string(), e.what())};
+//    }
 }
 
 auto createCompileCommands(
