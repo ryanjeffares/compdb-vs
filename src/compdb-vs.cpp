@@ -33,6 +33,8 @@ auto findTlogFiles(
     std::string_view config
 ) -> Result<std::vector<fs::path>, std::runtime_error>
 {
+    // recursing can cause a stack overflow for very large projects
+    // so do a loop advancing one level through the file tree at a time
     try {
         std::vector<fs::path> tlogFiles;
         std::vector<fs::path> dirsToCheck{buildDir};
@@ -61,32 +63,6 @@ auto findTlogFiles(
     } catch (const fs::filesystem_error& e) {
         return e;
     }
-
-//    try {
-//        for (const auto& entry : fs::directory_iterator{buildDir}) {
-//            if (const auto &path = entry.path(); fs::is_directory(path)) {
-//                log("Looking in {}...\n", path.string());
-//                auto innerFiles = findTlogFiles(path, config);
-//                if (!innerFiles) {
-//                    return innerFiles.error();
-//                }
-//
-//                tlogFiles.insert(
-//                    tlogFiles.end(),
-//                    std::make_move_iterator(innerFiles->begin()),
-//                    std::make_move_iterator(innerFiles->end())
-//                );
-//            } else {
-//              if (const auto parent = path.parent_path().parent_path();
-//                  parent.filename() == config && path.filename() == "CL.command.1.tlog") {
-//                  log("Found file {}\n", path.string());
-//                  tlogFiles.push_back(path);
-//              }
-//            }
-//        }
-//    } catch (const fs::filesystem_error& e) {
-//        return std::runtime_error{fmt::format("Failed to iterator through directory {}: {}", buildDir.string(), e.what())};
-//    }
 }
 
 auto createCompileCommands(
