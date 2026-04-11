@@ -1,0 +1,3 @@
+[submodule "third-party/minunit"]
+	path = third-party/minunit
+	url = https://github.com/siu/minunit.git

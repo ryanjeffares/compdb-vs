@@ -11,7 +11,8 @@ This tool is _unstable_ and _not well tested_. It seems to work fine for my own 
 Building and running this project has only been tested on Windows because, well, where else would you use it? First, download the latest release or build the project.
 
 ```bash
-> mkdir build
+> git clone --recursive https://github.com/ryanjeffares/compdb-vs.git
+> cd compdb-vs
 > cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 > cmake --build build --config Release
 > cmake --install build
